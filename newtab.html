@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>书签首页</title>
+    <link rel="stylesheet" href="styles/newtab.css">
+    <!-- 立即执行主题检测脚本，避免FOUC -->
+    <script>
+        // 主题检测脚本 - 必须在页面加载前执行
+        (function() {
+            // 检查系统是否为深色模式
+            function isSystemDarkMode() {
+                return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            }
+            
+            // 立即设置初始主题，避免闪烁
+            let initialTheme = 'light'; // 默认浅色主题
+            
+            // 检查系统深色模式偏好
+            if (isSystemDarkMode()) {
+                initialTheme = 'dark';
+            }
+            
+            // 立即应用初始主题
+            document.documentElement.setAttribute('data-theme', initialTheme);
+            
+            // 检查是否在Chrome扩展环境中
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                // Chrome扩展环境：异步获取用户设置的主题
+                chrome.storage.sync.get(['theme'], function(result) {
+                    if (result.theme && result.theme !== initialTheme) {
+                        document.documentElement.setAttribute('data-theme', result.theme);
+                    }
+                });
+            } else {
+                // 普通浏览器环境：同步获取主题设置
+                try {
+                    const savedTheme = localStorage.getItem('theme');
+                    if (savedTheme && savedTheme !== initialTheme) {
+                        document.documentElement.setAttribute('data-theme', savedTheme);
+                    }
+                } catch (error) {
+                    // localStorage不可用时，保持系统偏好主题
+                    console.warn('localStorage不可用，使用系统主题偏好');
+                }
+            }
+        })();
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部工具栏 -->
+        <header class="header">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="搜索书签..." class="search-input">
+                <button id="searchBtn" class="search-btn">🔍</button>
+            </div>
+            <div class="toolbar">
+                <button id="themeToggle" class="theme-toggle" title="切换主题">🌙</button>
+                <button id="languageToggle" class="language-toggle" title="切换语言">中</button>
+                <button id="githubLink" class="github-link" title="GitHub">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- 分类标签栏 -->
+        <nav class="category-nav">
+            <div class="category-tabs">
+                <button class="category-tab active" data-category="folder">按文件夹</button>
+                <button class="category-tab" data-category="domain">按网站</button>
+                <button class="category-tab" data-category="recent">最近添加</button>
+                <button class="category-tab" data-category="all">全部</button>
+            </div>
+            <div class="view-options">
+                <button id="gridView" class="view-btn active" title="网格视图">⊞</button>
+                <button id="listView" class="view-btn" title="列表视图">☰</button>
+            </div>
+        </nav>
+
+        <!-- 书签展示区域 -->
+        <main class="main-content">
+            <!-- 加载状态已移除 -->
+
+            <!-- 书签容器 -->
+            <div id="bookmarksContainer" class="bookmark-container">
+                <!-- 书签分组将在这里动态生成 -->
+            </div>
+
+            <!-- 空状态 -->
+            <div id="emptyState" class="empty-state hidden">
+                <h3>暂无书签</h3>
+                <p>开始添加一些书签来个性化您的新标签页吧！</p>
+            </div>
+
+            <!-- 搜索无结果 -->
+            <div id="noResults" class="no-results hidden">
+                <h3>未找到匹配的书签</h3>
+                <p>尝试使用不同的关键词搜索</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- 右键菜单 -->
+    <div id="contextMenu" class="context-menu hidden">
+        <div class="menu-item" data-action="open">打开</div>
+        <div class="menu-item" data-action="open-new-tab">在新标签页中打开</div>
+        <div class="menu-item" data-action="edit">编辑</div>
+        <div class="menu-separator"></div>
+        <div class="menu-item" data-action="delete">删除</div>
+    </div>
+
+    <!-- 编辑书签模态框 -->
+    <div id="editModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑书签</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editTitle">标题:</label>
+                    <input type="text" id="editTitle" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="editUrl">URL:</label>
+                    <input type="url" id="editUrl" class="form-input">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveEdit" class="btn btn-primary">保存</button>
+                <button id="cancelEdit" class="btn btn-secondary">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="scripts/newtab.js"></script>
+</body>
+</html>

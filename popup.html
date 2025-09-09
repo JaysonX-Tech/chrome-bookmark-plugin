@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>书签管理</title>
+    <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <!-- 头部 -->
+        <header class="popup-header">
+            <div class="logo">
+                <span class="logo-icon">📚</span>
+                <span class="logo-text">书签管理</span>
+            </div>
+            <div class="version">v2.0.0</div>
+        </header>
+
+        <!-- 快速操作 -->
+        <section class="quick-actions">
+            <button id="openNewTab" class="action-btn primary">
+                <span class="btn-icon">🏠</span>
+                <span class="btn-text">打开书签首页</span>
+            </button>
+            
+            <button id="addBookmark" class="action-btn">
+                <span class="btn-icon">➕</span>
+                <span class="btn-text">添加当前页面</span>
+            </button>
+        </section>
+
+        <!-- 统计信息 -->
+        <section class="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="totalBookmarks">-</div>
+                <div class="stat-label">总书签数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="totalFolders">-</div>
+                <div class="stat-label">文件夹数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="recentCount">-</div>
+                <div class="stat-label">本周新增</div>
+            </div>
+        </section>
+
+        <!-- 快速设置 -->
+        <section class="settings">
+            <h3 class="section-title">快速设置</h3>
+            
+            <div class="setting-item">
+                <label class="setting-label">
+                    <span class="setting-icon">🌙</span>
+                    <span class="setting-text">深色主题</span>
+                </label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="themeToggle" class="toggle-input">
+                    <label for="themeToggle" class="toggle-label"></label>
+                </div>
+            </div>
+            
+            <div class="setting-item">
+                <label class="setting-label">
+                    <span class="setting-icon">⊞</span>
+                    <span class="setting-text">网格视图</span>
+                </label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="viewToggle" class="toggle-input">
+                    <label for="viewToggle" class="toggle-label"></label>
+                </div>
+            </div>
+            
+            <div class="setting-item">
+                <label class="setting-label">
+                    <span class="setting-icon">🔄</span>
+                    <span class="setting-text">自动刷新</span>
+                </label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="autoRefresh" class="toggle-input" checked>
+                    <label for="autoRefresh" class="toggle-label"></label>
+                </div>
+            </div>
+        </section>
+
+        <!-- 最近书签 -->
+        <section class="recent-bookmarks">
+            <h3 class="section-title">最近添加</h3>
+            <div id="recentList" class="recent-list">
+                <div class="loading-recent">
+                    <div class="spinner-small"></div>
+                    <span>加载中...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 底部链接 -->
+        <footer class="popup-footer">
+            <button id="openOptions" class="footer-link">
+                <span class="link-icon">⚙️</span>
+                <span class="link-text">高级设置</span>
+            </button>
+            
+            <button id="exportBookmarks" class="footer-link">
+                <span class="link-icon">📤</span>
+                <span class="link-text">导出书签</span>
+            </button>
+        </footer>
+    </div>
+
+    <!-- 添加书签模态框 -->
+    <div id="addBookmarkModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>添加书签</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="bookmarkTitle">标题:</label>
+                    <input type="text" id="bookmarkTitle" class="form-input" placeholder="书签标题">
+                </div>
+                <div class="form-group">
+                    <label for="bookmarkUrl">URL:</label>
+                    <input type="url" id="bookmarkUrl" class="form-input" placeholder="https://example.com">
+                </div>
+                <div class="form-group">
+                    <label for="bookmarkFolder">文件夹:</label>
+                    <select id="bookmarkFolder" class="form-select">
+                        <option value="1">书签栏</option>
+                        <option value="2">其他书签</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveBookmark" class="btn btn-primary">保存</button>
+                <button id="cancelAdd" class="btn btn-secondary">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="scripts/popup.js"></script>
+</body>
+</html>
