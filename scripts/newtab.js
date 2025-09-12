@@ -802,7 +802,6 @@ class BookmarkManager {
         const titleCellEl = document.createElement('td');
         const titleLinkEl = document.createElement('a');
         titleLinkEl.href = bookmark.url;
-        titleLinkEl.target = '_blank';
         titleLinkEl.textContent = bookmark.title;
         titleLinkEl.title = bookmark.title;
         titleCellEl.appendChild(titleLinkEl);
@@ -811,7 +810,6 @@ class BookmarkManager {
         const urlCellEl = document.createElement('td');
         const urlLinkEl = document.createElement('a');
         urlLinkEl.href = bookmark.url;
-        urlLinkEl.target = '_blank';
         urlLinkEl.textContent = bookmark.url;
         urlLinkEl.title = bookmark.url;
         urlCellEl.appendChild(urlLinkEl);
@@ -827,7 +825,6 @@ class BookmarkManager {
         const itemEl = document.createElement('a');
         itemEl.className = 'bookmark-item';
         itemEl.href = bookmark.url;
-        itemEl.target = '_blank';
         itemEl.dataset.bookmarkId = bookmark.id;
         
         const faviconEl = document.createElement('img');

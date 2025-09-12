@@ -567,7 +567,7 @@ body {
 .bookmark-group {
   background-color: var(--bg-card);
   border-radius: var(--border-radius);
-  padding: 17px;
+  padding: 10px 17px  20px 17px;
   box-shadow: var(--shadow-card);
   transition: var(--transition-fast);
   position: relative;
@@ -639,7 +639,7 @@ body {
 .bookmark-table th,
 .bookmark-table td {
   border-bottom: 1px solid var(--border-color);
-  padding: 10px;
+  padding: 9px;
   text-align: left;
   overflow: hidden;
   white-space: nowrap;
@@ -675,12 +675,12 @@ body {
 /* 表格列宽设置 */
 .bookmark-table th:first-child,
 .bookmark-table td:first-child {
-  width: 60%;
+  width: 55%;
 }
 
 .bookmark-table th:last-child,
 .bookmark-table td:last-child {
-  width: 40%;
+  width: 45%;
 }
 
 /* 展开收起功能 */
