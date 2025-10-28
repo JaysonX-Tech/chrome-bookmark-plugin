@@ -1,5 +1,4 @@
 # Chrome书签首页展示插件
-
 将书签以美观的平铺方式展示在新标签页。
 
 ##  功能特性
@@ -25,3 +24,24 @@
 3. **切换分类**: 点击分类标签切换显示方式
 4. **切换主题**: 点击右上角月亮图标
 5. **切换视图**: 选择网格或列表视图
+
+本项目已 **完全开源**，所有代码均可自由查看与验证。  
+插件 **不收集任何用户数据**，**无隐私及安全风险**，仅用于本地展示书签内容。  
+
+欢迎提出建议、点亮 ⭐ 支持项目！  
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b2d2b10c-dcb2-49d3-883c-19988a567f1d" alt="书签展示示例" width="40%">
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/324584a2-729d-4452-b1b5-c8831a2927db" alt="分类视图示例" width="80%">
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/77f560be-2f4b-4212-a558-7964a21f18a4" alt="搜索功能示例" width="80%">
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ac9882c1-9868-4667-817b-6bb658027301" alt="主题切换示例" width="80%">
+</p>
