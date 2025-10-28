@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>书签管理</title>
+    <title>Bookmark NewTab</title>
     <link rel="stylesheet" href="styles/popup.css">
 </head>
 <body>
@@ -11,8 +11,8 @@
         <!-- 头部 -->
         <header class="popup-header">
             <div class="logo">
-                <span class="logo-icon">📚</span>
-                <span class="logo-text">书签管理</span>
+                <span class="logo-icon"></span>
+                <span class="logo-text">Bookmark NewTab</span>
             </div>
             <div class="version">v2.0.0</div>
         </header>
@@ -46,62 +46,8 @@
             </div>
         </section>
 
-        <!-- 快速设置 -->
-        <section class="settings">
-            <h3 class="section-title">快速设置</h3>
-            
-            <div class="setting-item">
-                <label class="setting-label">
-                    <span class="setting-icon">🌙</span>
-                    <span class="setting-text">深色主题</span>
-                </label>
-                <div class="toggle-switch">
-                    <input type="checkbox" id="themeToggle" class="toggle-input">
-                    <label for="themeToggle" class="toggle-label"></label>
-                </div>
-            </div>
-            
-            <div class="setting-item">
-                <label class="setting-label">
-                    <span class="setting-icon">⊞</span>
-                    <span class="setting-text">网格视图</span>
-                </label>
-                <div class="toggle-switch">
-                    <input type="checkbox" id="viewToggle" class="toggle-input">
-                    <label for="viewToggle" class="toggle-label"></label>
-                </div>
-            </div>
-            
-            <div class="setting-item">
-                <label class="setting-label">
-                    <span class="setting-icon">🔄</span>
-                    <span class="setting-text">自动刷新</span>
-                </label>
-                <div class="toggle-switch">
-                    <input type="checkbox" id="autoRefresh" class="toggle-input" checked>
-                    <label for="autoRefresh" class="toggle-label"></label>
-                </div>
-            </div>
-        </section>
-
-        <!-- 最近书签 -->
-        <section class="recent-bookmarks">
-            <h3 class="section-title">最近添加</h3>
-            <div id="recentList" class="recent-list">
-                <div class="loading-recent">
-                    <div class="spinner-small"></div>
-                    <span>加载中...</span>
-                </div>
-            </div>
-        </section>
-
         <!-- 底部链接 -->
         <footer class="popup-footer">
-            <button id="openOptions" class="footer-link">
-                <span class="link-icon">⚙️</span>
-                <span class="link-text">高级设置</span>
-            </button>
-            
             <button id="exportBookmarks" class="footer-link">
                 <span class="link-icon">📤</span>
                 <span class="link-text">导出书签</span>
