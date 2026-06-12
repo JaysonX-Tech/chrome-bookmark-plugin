@@ -3,7 +3,7 @@
 // 扩展安装时的初始化
 chrome.runtime.onInstalled.addListener((details) => {
     console.log('书签首页展示插件已安装');
-    
+
     // 设置默认配置
     chrome.storage.sync.set({
         theme: 'light',
@@ -11,7 +11,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         autoRefresh: true,
         showFavicons: true
     });
-    
+
     // 如果是首次安装，显示欢迎页面
     if (details.reason === 'install') {
         chrome.tabs.create({
@@ -20,44 +20,24 @@ chrome.runtime.onInstalled.addListener((details) => {
     }
 });
 
-// 监听书签变化事件
-chrome.bookmarks.onCreated.addListener((id, bookmark) => {
-    console.log('书签已创建:', bookmark);
-    notifyNewTabPages('bookmarkCreated', { id, bookmark });
-});
+// 说明：以下三段历史代码已移除（保留注释便于未来 review）：
+//
+// 1. chrome.bookmarks.on{Created,Removed,Changed,Moved} → notifyNewTabPages()
+//    原本广播书签变化给 newtab 页面，但：
+//    - newtab.js 自己已经直接订阅了相同事件，重复触发；
+//    - 过滤条件 `tab.url.includes('newtab.html')` 实际匹配不到 chrome://newtab/，
+//      整条链路从未真正生效。
+//
+// 2. chrome.action.onClicked.addListener(...)
+//    manifest 设置了 default_popup 后，工具栏点击直接弹 popup，onClicked 不会触发。
+//
+// 3. setInterval(cleanupCache, 60 * 60 * 1000)
+//    MV3 Service Worker 大约 30 秒无活动即 idle，setInterval 跨不过 SW 重启，
+//    永远跑不到 1 小时。如需周期清理请改用 chrome.alarms API
+//    （需要在 manifest 中加 "alarms" 权限）。
 
-chrome.bookmarks.onRemoved.addListener((id, removeInfo) => {
-    console.log('书签已删除:', id);
-    notifyNewTabPages('bookmarkRemoved', { id, removeInfo });
-});
-
-chrome.bookmarks.onChanged.addListener((id, changeInfo) => {
-    console.log('书签已修改:', id, changeInfo);
-    notifyNewTabPages('bookmarkChanged', { id, changeInfo });
-});
-
-chrome.bookmarks.onMoved.addListener((id, moveInfo) => {
-    console.log('书签已移动:', id, moveInfo);
-    notifyNewTabPages('bookmarkMoved', { id, moveInfo });
-});
-
-// 通知所有新标签页更新
-function notifyNewTabPages(action, data) {
-    chrome.tabs.query({}, (tabs) => {
-        tabs.forEach(tab => {
-            if (tab.url && tab.url.includes('newtab.html')) {
-                chrome.tabs.sendMessage(tab.id, {
-                    action: action,
-                    data: data
-                }).catch(() => {
-                    // 忽略无法发送消息的标签页
-                });
-            }
-        });
-    });
-}
-
-// 处理来自内容脚本的消息
+// 消息路由 — 当前 newtab.js 直接调用 chrome.bookmarks.* API，没有用到这些消息，
+// 但保留作为未来跨上下文调用（例如 content script、options 页面）的扩展点
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     switch (request.action) {
         case 'getBookmarks':
@@ -65,7 +45,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ bookmarks: bookmarkTree });
             });
             return true; // 保持消息通道开放
-            
+
         case 'createBookmark':
             chrome.bookmarks.create({
                 parentId: request.parentId || '1',
@@ -75,7 +55,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ success: true, bookmark });
             });
             return true;
-            
+
         case 'updateBookmark':
             chrome.bookmarks.update(request.id, {
                 title: request.title,
@@ -84,13 +64,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ success: true, bookmark });
             });
             return true;
-            
+
         case 'removeBookmark':
             chrome.bookmarks.remove(request.id, () => {
                 sendResponse({ success: true });
             });
             return true;
-            
+
         case 'searchBookmarks':
             chrome.bookmarks.search(request.query, (results) => {
                 sendResponse({ results });
@@ -98,39 +78,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return true;
     }
 });
-
-// 处理扩展图标点击
-chrome.action.onClicked.addListener((tab) => {
-    // 打开新标签页
-    chrome.tabs.create({
-        url: chrome.runtime.getURL('newtab.html')
-    });
-});
-
-// 监听存储变化
-chrome.storage.onChanged.addListener((changes, namespace) => {
-    console.log('存储设置已更改:', changes);
-    
-    // 通知所有新标签页更新设置
-    notifyNewTabPages('settingsChanged', changes);
-});
-
-// 定期清理缓存（可选）
-setInterval(() => {
-    // 清理过期的缓存数据
-    chrome.storage.local.get(null, (items) => {
-        const now = Date.now();
-        const keysToRemove = [];
-        
-        Object.keys(items).forEach(key => {
-            if (key.startsWith('cache_') && items[key].expiry && items[key].expiry < now) {
-                keysToRemove.push(key);
-            }
-        });
-        
-        if (keysToRemove.length > 0) {
-            chrome.storage.local.remove(keysToRemove);
-            console.log('已清理过期缓存:', keysToRemove.length, '项');
-        }
-    });
-}, 60000 * 60); // 每小时清理一次

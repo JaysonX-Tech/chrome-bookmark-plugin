@@ -1,165 +1,108 @@
-/* 防闪烁样式 - 根据系统偏好设置初始样式 */
-/* 默认浅色主题（适合大多数用户） */
+/* ============================================================
+   Bookmark NewTab — 样式
+   设计语言:浅色"官方蓝"(#001f84) / 深色 Indigo (#818cf8)、
+   软阴影、行 hover 整行高亮、favicon 列。
+   兼容浅色 / 深色双主题 — 颜色全部走变量,改主题只需调 :root 与
+   [data-theme="dark"] 两段。
+   ============================================================ */
+
+/* ---------------------------------------
+   1. 底层防闪烁 — 仅设置背景色 fallback,
+      其余样式由变量系统接管。原本 100+ 行
+      !important 防闪烁段已删除(theme-init.js
+      已在渲染前同步注入 data-theme,无需 CSS 补防御)。
+   --------------------------------------- */
 html, body {
-  background-color: #f4f4f4 !important;
+  background-color: #f7f7fb;
 }
-
-.search-container {
-  background: #fff !important;
-}
-
-.bookmark-group {
-  background-color: #fff !important;
-}
-
-.category-tabs, .view-options {
-  background: #fff !important;
-}
-
-.toolbar button {
-  background: #fff !important;
-}
-
-.context-menu {
-  background: #fff !important;
-  border-color: #f4f4f4 !important;
-}
-
-.modal-content {
-  background: #fff !important;
-}
-
-.form-input {
-  background: #fff !important;
-  border-color: #f4f4f4 !important;
-}
-
-/* 深色主题覆盖样式 */
 [data-theme="dark"] html,
 [data-theme="dark"] body {
-  background-color: #202124 !important;
+  background-color: #0f1117;
 }
-
-[data-theme="dark"] .search-container {
-  background: #303134 !important;
-}
-
-[data-theme="dark"] .bookmark-group {
-  background-color: #303134 !important;
-}
-
-[data-theme="dark"] .category-tabs,
-[data-theme="dark"] .view-options {
-  background: #303134 !important;
-}
-
-[data-theme="dark"] .toolbar button {
-  background: #3c4043 !important;
-}
-
-[data-theme="dark"] .context-menu {
-  background: #202124 !important;
-  border-color: #5f6368 !important;
-}
-
-[data-theme="dark"] .modal-content {
-  background: #202124 !important;
-}
-
-[data-theme="dark"] .form-input {
-  background: #303134 !important;
-  border-color: #5f6368 !important;
-}
-
-/* 系统偏好深色主题的防闪烁样式 */
 @media (prefers-color-scheme: dark) {
-  html:not([data-theme]) {
-    background-color: #202124 !important;
-  }
-  
+  html:not([data-theme]),
   body:not([data-theme]) {
-    background-color: #202124 !important;
-  }
-  
-  .search-container:not([data-theme] *) {
-    background: #303134 !important;
-  }
-  
-  .bookmark-group:not([data-theme] *) {
-    background-color: #303134 !important;
-  }
-  
-  .category-tabs:not([data-theme] *),
-  .view-options:not([data-theme] *) {
-    background: #303134 !important;
-  }
-  
-  .toolbar button:not([data-theme] *) {
-    background: #3c4043 !important;
-  }
-  
-  .context-menu:not([data-theme] *) {
-    background: #202124 !important;
-    border-color: #5f6368 !important;
-  }
-  
-  .modal-content:not([data-theme] *) {
-    background: #202124 !important;
-  }
-  
-  .form-input:not([data-theme] *) {
-    background: #303134 !important;
-    border-color: #5f6368 !important;
+    background-color: #0f1117;
   }
 }
 
-/* 基础样式和CSS变量 */
+/* ---------------------------------------
+   2. 主题变量
+   --------------------------------------- */
 :root {
-  /* 示例风格配色 */
-  --bg-primary: #faf9f9;
-  --bg-secondary: #fff;
-  --bg-tertiary: #fbfbfb;
-  --bg-card: #fff;
-  --text-primary: #333;
-  --text-secondary: #242e42;
-  --text-muted: #666;
+  /* 表面层 */
+  --bg-primary: #f7f7fb;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f3f9;
+  --bg-card: #ffffff;
+  --bg-row-hover: #e9edf8;          /* 行 hover 时的淡藏蓝 */
+
+  /* 文字 */
+  --text-primary: #1e1f2e;
+  --text-secondary: #3d3f54;
+  --text-muted: #6b6f80;
   --text-link: #001f84;
   --text-link-hover: #0D5FE9;
-  --border-color: #f4f4f4;
-  --shadow: 0 0px 0px rgba(0, 0, 0, 0.12), 0 0px 1px rgba(0, 0, 0, 0.24);
-  --shadow-hover: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 5px rgba(0, 0, 0, 0.24);
-  --shadow-card: 0 0px 0px rgba(0, 0, 0, 0.12), 0 0px 1px rgba(0, 0, 0, 0.24);
+
+  /* 边框 */
+  --border-color: #edeff5;
+  --border-strong: #d4d7e3;
+
+  /* 主色 — 浅色用"官方蓝"(#001f84),深色保留 Indigo,两套调性各有性格 */
   --accent-color: #001f84;
   --accent-hover: #0D5FE9;
-  --success-color: #48bb78;
-  --danger-color: #f56565;
-  --warning-color: #ed8936;
+  --accent-soft: rgba(0, 31, 132, 0.10);    /* hover/底色用 */
+  --accent-ring: rgba(0, 31, 132, 0.22);    /* focus ring 用 */
+
+  /* 状态色 */
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+
+  /* 阴影 — 软而真实 */
+  --shadow: 0 1px 2px rgba(20, 22, 60, 0.04);
+  --shadow-hover: 0 4px 16px rgba(20, 22, 60, 0.08), 0 1px 2px rgba(20, 22, 60, 0.04);
+  --shadow-card: 0 1px 3px rgba(20, 22, 60, 0.05), 0 4px 16px rgba(20, 22, 60, 0.04);
+
+  /* 几何 */
   --border-radius: 12px;
   --border-radius-sm: 8px;
+
+  /* 动效 */
   --transition-fast: transform 0.1s ease, opacity 0.1s ease;
-  --transition-medium: all 0.15s ease-out;
+  --transition-medium: all 0.18s ease-out;
 }
 
 [data-theme="dark"] {
-  /* Chrome深色模式配色方案 */
-  --bg-primary: #202124;
-  --bg-secondary: #303134;
-  --bg-tertiary: #37383b;
-  --bg-card: #303134;
-  --text-primary: #e8eaed;
-  --text-secondary: #e8eaed;
-  --text-muted: #9aa0a6;
-  --text-link: #8ab4f8;
-  --text-link-hover: #aecbfa;
-  --border-color: #454646;
-  --shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-hover: 0 10px 25px rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --accent-color: #8ab4f8;
-  --accent-hover: #aecbfa;
+  --bg-primary: #0f1117;
+  --bg-secondary: #181b24;
+  --bg-tertiary: #1f2230;
+  --bg-card: #181b24;
+  --bg-row-hover: rgba(129, 140, 248, 0.10);
+
+  --text-primary: #e5e7f0;
+  --text-secondary: #c5c8d6;
+  --text-muted: #8a8fa3;
+  --text-link: #a5b4fc;
+  --text-link-hover: #c7d2fe;
+
+  --border-color: #262a37;
+  --border-strong: #303544;
+
+  /* 深色调主色(Indigo 400/300) */
+  --accent-color: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-soft: rgba(129, 140, 248, 0.14);
+  --accent-ring: rgba(129, 140, 248, 0.30);
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
-/* 深色模式下的特殊样式优化 */
+/* ---------------------------------------
+   3. 深色模式微调(变量覆盖不到的地方)
+   --------------------------------------- */
 [data-theme="dark"] body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
@@ -173,94 +116,23 @@ html, body {
   color: var(--text-link-hover);
 }
 
-[data-theme="dark"] .group-title {
-  color: var(--text-link);
-  text-shadow: 0 0 10px rgba(138, 180, 248, 0.3);
-}
-
-[data-theme="dark"] .bookmark-table th {
-  color: var(--text-secondary);
-  background-color: var(--bg-tertiary);
-}
-
-[data-theme="dark"] .search-input::placeholder {
-  color: var(--text-muted);
-}
-
-[data-theme="dark"] .search-input {
+[data-theme="dark"] .modal-close:hover {
   color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border-radius: 50%;
 }
 
-[data-theme="dark"] .bookmark-table td {
-  color: var(--text-secondary);
-}
-
-[data-theme="dark"] .group-title {
-  color: var(--text-link);
-  font-weight: 500;
-}
-
-[data-theme="dark"] .form-group label {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-/* 深色模式增强视觉效果 */
-[data-theme="dark"] .search-container {
-  background: var(--bg-secondary);
-  border: 1px solid rgba(138, 180, 248, 0.2);
-}
-
-[data-theme="dark"] .search-container:hover {
-  border-color: rgba(138, 180, 248, 0.4);
-  box-shadow: 0 8px 32px rgba(138, 180, 248, 0.1);
-}
-
-[data-theme="dark"] .bookmark-group {
-  background: var(--bg-card);
-  border: 1px solid rgba(95, 99, 104, 0.3);
-}
-
-[data-theme="dark"] .bookmark-group:hover {
-  border-color: rgba(138, 180, 248, 0.3);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(138, 180, 248, 0.1);
-  transform: translateY(-2px);
-}
-
-[data-theme="dark"] .category-tab.active {
-  background: var(--accent-color);
-  box-shadow: 0 4px 15px rgba(138, 180, 248, 0.3);
-}
-
-[data-theme="dark"] .toolbar button:hover {
-  background: var(--accent-color);
-  box-shadow: 0 4px 15px rgba(138, 180, 248, 0.3);
-}
-
-[data-theme="dark"] .btn-primary {
-  background: var(--accent-color);
-  box-shadow: 0 4px 15px rgba(138, 180, 248, 0.2);
-}
-
-[data-theme="dark"] .btn-primary:hover {
-  box-shadow: 0 6px 20px rgba(138, 180, 248, 0.4);
-  transform: translateY(-1px);
-}
-
-/* 重置和基础样式 */
+/* ---------------------------------------
+   4. 重置 + 基础
+   --------------------------------------- */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-/* 性能优化 */
-* {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* GPU加速优化 */
 .bookmark-item,
 .bookmark-group,
 .toolbar button,
@@ -273,7 +145,9 @@ html, body {
 }
 
 body {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+               "PingFang SC", "Inter", "Helvetica Neue",
+               "Microsoft YaHei", Arial, sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
@@ -293,15 +167,15 @@ body {
   z-index: 1;
 }
 
-/* 顶部工具栏 */
+/* ---------------------------------------
+   5. 顶部:搜索 + 工具栏
+   --------------------------------------- */
 .header {
   display: flex;
   justify-content: center;
   align-items: center;
   margin-bottom: 10px;
   padding: 5px 0;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   position: relative;
 }
 
@@ -310,37 +184,26 @@ body {
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 50px;
-  padding: 0 24px;
+  padding: 0 22px;
   box-shadow: var(--shadow-card);
-  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s ease, border-color 0.1s ease;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: none;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
   position: relative;
   overflow: hidden;
   will-change: transform;
   margin: 0 auto;
 }
 
-.search-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
-}
-
-.search-container:hover::before {
-  left: 100%;
+.search-container:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-hover);
 }
 
 .search-container:focus-within {
-  box-shadow: var(--shadow-hover);
-  transform: translate3d(0, -2px, 0);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 4px var(--accent-ring), var(--shadow-hover);
+  transform: translate3d(0, -1px, 0);
 }
 
 .search-input {
@@ -354,15 +217,7 @@ body {
   position: relative;
   z-index: 2;
   box-shadow: none;
-}
-
-.search-input:focus {
-  outline: none;
-  border: none;
-  box-shadow: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
+  padding: 10px 0;
 }
 
 .search-input::placeholder {
@@ -370,13 +225,25 @@ body {
   font-weight: 400;
 }
 
+/* 搜索框 input 自己不显示 focus outline —— focus 反馈完全由外层
+   .search-container:focus-within 的胶囊形 ring 提供。
+   否则全局 *:focus-visible 会给 input 加一圈直角框，套在圆角胶囊里非常突兀。 */
+.search-input:focus,
+.search-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .search-btn {
   background: none;
   border: none;
-  font-size: 20px;
-  color: var(--text-secondary);
-  margin-left: 12px;
-  padding: 8px;
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-left: 8px;
+  padding: 4px;
   border-radius: 50%;
   position: relative;
   z-index: 2;
@@ -386,22 +253,23 @@ body {
 
 .toolbar {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   position: absolute;
   right: 0;
 }
 
 .toolbar button {
   background: var(--bg-secondary);
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: 50%;
   width: 40px;
   height: 40px;
   font-size: 16px;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s ease;
-  box-shadow: var(--shadow-card);
+  transition: transform 0.15s ease, box-shadow 0.15s ease,
+              background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  box-shadow: var(--shadow);
   position: relative;
   will-change: transform;
 }
@@ -418,7 +286,7 @@ body {
 }
 
 .github-link svg {
-  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.15s ease;
 }
 
 .github-link:hover svg {
@@ -426,16 +294,20 @@ body {
 }
 
 .toolbar button:hover {
-  background: var(--accent-color);
-  transform: translate3d(0, -2px, 0) scale(1.02);
+  background: var(--accent-soft);
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  transform: translate3d(0, -1px, 0);
   box-shadow: var(--shadow-hover);
 }
 
 .toolbar button:active {
-  transform: translate3d(0, -1px, 0);
+  transform: translate3d(0, 0, 0);
 }
 
-/* 分类导航 */
+/* ---------------------------------------
+   6. 分类导航 + 视图切换
+   --------------------------------------- */
 .category-nav {
   display: flex;
   justify-content: space-between;
@@ -445,48 +317,51 @@ body {
 
 .category-tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   background: var(--bg-secondary);
   border-radius: 40px;
-  padding: 6px;
-  box-shadow: var(--shadow-card);
+  padding: 5px;
+  box-shadow: var(--shadow);
   border: 1px solid var(--border-color);
+  margin-bottom: 20px;
 }
 
 .category-tab {
   background: transparent;
   border: none;
-  padding: 5px 17px;
+  padding: 6px 18px;
   border-radius: 40px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: var(--transition-fast);
-  will-change: transform;
+  /* 加长过渡 + box-shadow —— 配合首屏 html.ready 触发"由浅入深"出现 active 着色 */
+  transition: background 0.35s ease-out, color 0.35s ease-out, box-shadow 0.35s ease-out;
 }
 
 .category-tab:hover {
-  color: var(--text-primary);
-  background: rgba(102, 126, 234, 0.1);
+  color: var(--accent-color);
+  background: var(--accent-soft);
 }
 
-[data-theme="dark"] .category-tab:hover {
-  color: var(--text-primary);
-  background: rgba(56, 189, 248, 0.15);
-  transform: translateY(-1px);
-}
-
-.category-tab.active {
+/* active 着色 —— 关键设计:只在 html.ready 加上才生效（JS init 完成后由 RAF 加）。
+   首屏所有 tab 都是中性,等 ready 后正确 tab 才"由浅入深"过渡出现 active 颜色。
+   这避免了 chrome.storage 异步 + localStorage 缺失等情况下"先错后对"的视觉跳变。
+   布局规则(html[data-*] .bookmark-container)不受 ready 限制,仍立即生效,避免布局跳变。 */
+html.ready .category-tab.active,
+html.ready[data-category="folder"] .category-tab[data-category="folder"],
+html.ready[data-category="domain"] .category-tab[data-category="domain"],
+html.ready[data-category="recent"] .category-tab[data-category="recent"],
+html.ready[data-category="all"]    .category-tab[data-category="all"] {
   background: var(--accent-color);
   color: #ffffff !important;
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 1px 3px var(--accent-ring);
   font-weight: 700;
 }
 
 .view-options {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   background: var(--bg-secondary);
   border-radius: 40px;
   padding: 4px;
@@ -503,86 +378,146 @@ body {
   font-size: 14px;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: var(--transition-fast);
-  will-change: transform;
+  /* 同 .category-tab —— 加长过渡,html.ready 时着色"由浅入深"出现 */
+  transition: background 0.35s ease-out, color 0.35s ease-out, box-shadow 0.35s ease-out;
 }
 
 .view-btn:hover {
-  color: var(--text-primary);
-  background: rgba(102, 126, 234, 0.1);
+  color: var(--accent-color);
+  background: var(--accent-soft);
 }
 
-[data-theme="dark"] .view-btn:hover {
-  color: var(--text-primary);
-  background: rgba(56, 189, 248, 0.15);
-  transform: translateY(-1px);
-}
-
-.view-btn.active {
+/* active 着色 —— 同 .category-tab.active 的处理:只在 html.ready 加上才生效。
+   首屏 view-btn 全部中性,等 JS init 完成后正确按钮才"由浅入深"出现。 */
+html.ready .view-btn.active,
+html.ready[data-view="grid"] #gridView,
+html.ready[data-view="list"] #listView {
   background: var(--accent-color);
   color: #ffffff !important;
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 1px 3px var(--accent-ring);
 }
 
-/* 主内容区域 */
+/* ---------------------------------------
+   7. 主内容 + 书签容器
+   --------------------------------------- */
 .main-content {
   position: relative;
   min-height: 400px;
 }
 
-/* 加载状态样式已移除 */
-
-/* 书签容器 - 固定3列Grid布局 */
+/* 瀑布流 —— 用 CSS multi-column 代替 Grid，列内纵向填充，
+   避免 Grid 行对齐造成的"某列过长时其他列下方留空"。
+   注意:multi-column 填充顺序是"列优先"——卡片 1/2/3 在第 1 列从上到下,
+   4/5/6 在第 2 列,依此类推。书签场景下用户按文件夹名定位,这种顺序 OK。 */
 .bookmark-container {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  column-count: 3;
+  column-gap: 24px;
   padding: 20px 0;
   max-width: 1400px;
   margin: 0 auto;
 }
 
-.bookmark-container.list-view {
-  grid-template-columns: 1fr;
+.bookmark-container.list-view,
+html[data-view="list"] .bookmark-container {
+  column-count: 1;
   max-width: 100%;
   margin: 0 auto;
 }
 
-/* "最近添加"和"全部"分类使用单列布局 */
+/* "最近添加" / "全部" 单列 —— data-category 在容器上是 JS 渲染时设的；
+   在 html 上是 preferences-init.js 在 body 渲染前设的(0 闪烁) */
 .bookmark-container[data-category="recent"],
-.bookmark-container[data-category="all"] {
-  grid-template-columns: 1fr;
+.bookmark-container[data-category="all"],
+html[data-category="recent"] .bookmark-container,
+html[data-category="all"]    .bookmark-container {
+  column-count: 1;
   max-width: 1000px;
   margin: 0 auto;
 }
 
-/* 为"最近添加"和"全部"分类的书签组设置更宽的样式 */
 .bookmark-container[data-category="recent"] .bookmark-group,
-.bookmark-container[data-category="all"] .bookmark-group {
+.bookmark-container[data-category="all"] .bookmark-group,
+html[data-category="recent"] .bookmark-group,
+html[data-category="all"]    .bookmark-group {
   max-width: none;
   width: 100%;
 }
 
-/* 书签分组 - 卡片式设计 */
+/* ---------------------------------------
+   8. 书签卡片
+   --------------------------------------- */
 .bookmark-group {
   background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: 10px 17px  20px 17px;
+  padding: 14px 18px 16px 18px;
   box-shadow: var(--shadow-card);
-  transition: var(--transition-fast);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
   position: relative;
   width: 100%;
   min-width: 0;
   font-size: 13px;
+  /* 瀑布流(multi-column)关键 ——
+     - break-inside: avoid 阻止卡片被切到两列
+     - display: inline-block 让 transform/动画在 column 内稳定（Safari 兼容）
+     - margin-bottom 代替原本 grid 的 gap,控制卡片之间的垂直间距
+     JS 接管时(.masonry-js)会覆盖这些,改用 absolute 定位 */
+  display: inline-block;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  margin-bottom: 24px;
 }
 
-/* 移除.wide类的特殊布局，确保所有卡片都是单列宽度 */
+/* ---------------------------------------
+   JS 接管的瀑布流(行优先 + 最矮列追加)——
+   默认 CSS multi-column 是列优先,JS 接管后改成行优先,
+   让卡片顺序跟书签栏顺序保持一致(Pinterest 风)。
+   --------------------------------------- */
+.bookmark-container.masonry-js {
+  /* JS 接管:取消 multi-column,改成"绝对定位容器" */
+  column-count: initial;
+  column-gap: 0;
+  position: relative;
+}
+
+.bookmark-container.masonry-js .bookmark-group {
+  /* JS 接管:取消 inline-block / break-inside / margin-bottom,
+     改成 absolute,位置和宽度由 layoutMasonry() inline 设置 */
+  display: block;
+  break-inside: initial;
+  -webkit-column-break-inside: initial;
+  page-break-inside: initial;
+  margin-bottom: 0;
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* 注意:不能给 transform 加 transition —— 否则 resize/切换时卡片会"飞"。
+     hover 时的抬起感改用 box-shadow 加深来表现(translateY 会覆盖布局 transform) */
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  /* 入场动画 —— 只动 opacity,绝不能动 transform!
+     默认的 slideInUp/fadeIn 都包含 transform 关键帧,
+     CSS animation 优先级高于 inline style,会覆盖 layoutMasonry
+     设的 transform: translate3d(x, y, 0),导致动画期间卡片堆在 (0, 0)。 */
+  animation: masonryFadeIn 0.3s ease-out;
+}
+
+.bookmark-container.masonry-js .bookmark-group:hover {
+  /* masonry-js 模式下不动 transform,避免覆盖布局 transform */
+  transform: none;
+  /* 让 hover 的 box-shadow 加深更明显,补偿没有 translateY */
+  box-shadow: var(--shadow-hover);
+  border-color: var(--border-strong);
+}
+
 .bookmark-group.wide {
   grid-column: span 1;
 }
 
 .bookmark-group:hover {
+  border-color: var(--border-strong);
   box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
 }
 
 .group-header {
@@ -597,7 +532,7 @@ body {
 
 .group-title {
   font-size: 14px;
-  font-weight: 400;
+  font-weight: 600;
   color: var(--text-link);
   display: flex;
   align-items: center;
@@ -621,47 +556,81 @@ body {
   font-size: 14px;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: transform 0.1s ease;
+  transition: transform 0.15s ease;
 }
 
 .group-toggle.collapsed {
   transform: rotate(-90deg);
 }
 
-/* 书签表格 */
+/* ---------------------------------------
+   9. 书签表格 — 加了 favicon 列、表头淡化、
+      行 hover 整行高亮、最后一行去除底边
+   --------------------------------------- */
 .bookmark-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  margin-top: 6px;
   table-layout: fixed;
 }
 
-.bookmark-table th,
-.bookmark-table td {
-  border-bottom: 1px solid var(--border-color);
-  padding: 9px;
+/* —— 表头 —— */
+.bookmark-table thead th {
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 10px 10px 10px;
   text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* 标题列表头是文件夹名,需要更突出 */
+.bookmark-table thead th:nth-child(2) {
+  color: var(--text-link);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* URL 列表头 —— 跟正文字号对齐(13px),去掉 uppercase 风格,
+   颜色保留 muted(继承父规则),只是不再显得"小一截" */
+.bookmark-table thead th:nth-child(3) {
+  color: var(--text-link);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* —— 表体 —— */
+.bookmark-table tbody tr {
+  transition: background-color 0.12s ease-out;
+}
+
+.bookmark-table tbody tr:hover {
+  background-color: var(--bg-row-hover);
+}
+
+.bookmark-table tbody td {
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 10px;
+  font-size: 13px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.bookmark-table th {
-  background-color: var(--bg-tertiary);
-  color: var(--text-link);
-  font-weight: 500;
-  font-size: 13px;
-}
-
-.bookmark-table td {
-  font-size: 13px;
-  max-width: 0;
+.bookmark-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .bookmark-table a {
   color: var(--text-secondary);
   text-decoration: none;
-  transition: color 0.1s ease;
+  transition: color 0.12s ease;
   display: block;
   overflow: hidden;
   white-space: nowrap;
@@ -669,59 +638,106 @@ body {
 }
 
 .bookmark-table a:hover {
-  color: var(--text-link-hover);
+  color: var(--accent-color);
 }
 
-/* 表格列宽设置 */
-.bookmark-table th:first-child,
-.bookmark-table td:first-child {
-  width: 55%;
+/* 列宽:favicon 36px / 标题 50% / URL 余下 */
+.bookmark-table th:nth-child(1),
+.bookmark-table td:nth-child(1) {
+  width: 36px;
+  padding-right: 0;
 }
 
-.bookmark-table th:last-child,
-.bookmark-table td:last-child {
-  width: 45%;
+.bookmark-table th:nth-child(2),
+.bookmark-table td:nth-child(2) {
+  width: 50%;
 }
 
-/* 展开收起功能 */
+.bookmark-table th:nth-child(3),
+.bookmark-table td:nth-child(3) {
+  width: calc(50% - 36px);
+}
+
+/* URL 列文字弱化以让标题更突出 */
+.bookmark-table tbody td:nth-child(3) a {
+  color: var(--text-muted);
+}
+
+.bookmark-table tbody td:nth-child(3) a:hover {
+  color: var(--accent-color);
+}
+
+/* ---------------------------------------
+   10. Favicon — 18×18,加载失败由 JS 替换为
+       带域名首字母的圆形,背景色用域名 hash
+   --------------------------------------- */
+.bookmark-favicon-cell {
+  vertical-align: middle;
+}
+
+.bookmark-favicon,
+.bookmark-favicon-fallback {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: block;
+}
+
+.bookmark-favicon {
+  object-fit: cover;
+  background: var(--bg-tertiary);
+}
+
+.bookmark-favicon-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+  /* 背景色由 JS 按域名 hash 设置 */
+}
+
+/* ---------------------------------------
+   11. 展开收起
+   --------------------------------------- */
 .bookmark-list {
-  transition: opacity 0.1s ease;
+  transition: opacity 0.15s ease;
 }
 
 .bookmark-list[style*="display: none"] {
   opacity: 0;
 }
 
-/* 响应式布局 */
+/* ---------------------------------------
+   12. 响应式 — 表格断点
+   --------------------------------------- */
 @media (max-width: 1200px) {
   .bookmark-container {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    column-count: 2;
+    column-gap: 20px;
   }
-  
   .bookmark-group.wide {
+    /* multi-column 下无意义,保留无害 */
     grid-column: span 1;
   }
 }
 
 @media (max-width: 768px) {
   .bookmark-container {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    column-count: 1;
   }
-  
   .bookmark-group {
     padding: 12px;
+    margin-bottom: 14px;
   }
-  
-  .bookmark-group.wide {
-    grid-column: span 1;
-  }
-  
-  .bookmark-table th,
-  .bookmark-table td {
-    padding: 8px;
+  .bookmark-table tbody td {
+    padding: 7px 8px;
     font-size: 12px;
+  }
+  .bookmark-table thead th {
+    padding: 6px 8px 8px 8px;
   }
 }
 
@@ -729,34 +745,26 @@ body {
   .bookmark-group {
     padding: 10px;
   }
-  
-  .bookmark-table th,
-  .bookmark-table td {
+  .bookmark-table tbody td {
     padding: 6px;
     font-size: 11px;
   }
 }
 
-/* 保持原有的书签项目样式作为备用 */
+/* ---------------------------------------
+   13. 列表视图样式占位
+   --------------------------------------- */
 .bookmark-item {
   display: none;
 }
 
-/* 列表视图样式 */
 .list-view .bookmark-group {
   padding: 12px 15px;
 }
 
-.list-view .bookmark-item {
-  padding: 8px 10px;
-}
-
-.list-view .bookmark-favicon {
-  width: 18px;
-  height: 18px;
-}
-
-/* 空状态和无结果 */
+/* ---------------------------------------
+   14. 空状态 / 无结果
+   --------------------------------------- */
 .empty-state,
 .no-results {
   display: flex;
@@ -767,8 +775,6 @@ body {
   color: var(--text-secondary);
   text-align: center;
 }
-
-
 
 .empty-state h3,
 .no-results h3 {
@@ -783,42 +789,42 @@ body {
   max-width: 280px;
 }
 
-/* 右键菜单 */
+/* ---------------------------------------
+   15. 右键菜单
+   --------------------------------------- */
 .context-menu {
   position: fixed;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: var(--shadow-hover);
   padding: 4px 0;
   z-index: 1000;
-  min-width: 140px;
+  min-width: 160px;
 }
 
 .menu-item {
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 7px 14px;
+  font-size: 13px;
   cursor: pointer;
   color: var(--text-primary);
-  transition: background-color 0.1s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .menu-item:hover {
-  background: var(--bg-secondary);
-}
-
-[data-theme="dark"] .menu-item:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-link);
+  background: var(--accent-soft);
+  color: var(--accent-color);
 }
 
 .menu-separator {
   height: 1px;
   background: var(--border-color);
-  margin: 5px 0;
+  margin: 4px 0;
 }
 
-/* 模态框 */
+/* ---------------------------------------
+   16. 模态框
+   --------------------------------------- */
 .modal {
   position: fixed;
   top: 0;
@@ -833,16 +839,10 @@ body {
 }
 
 .modal-content {
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   border-radius: 12px;
   width: 90%;
   max-width: 450px;
-  box-shadow: var(--shadow-hover);
-}
-
-[data-theme="dark"] .modal-content {
-  background: var(--bg-primary);
-  border-radius: 12px;
   box-shadow: var(--shadow-hover);
   border: 1px solid var(--border-color);
 }
@@ -874,16 +874,6 @@ body {
   justify-content: center;
 }
 
-[data-theme="dark"] .modal-close {
-  color: var(--text-secondary);
-}
-
-[data-theme="dark"] .modal-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  border-radius: 50%;
-}
-
 .modal-body {
   padding: 16px;
 }
@@ -902,29 +892,19 @@ body {
 
 .form-input {
   width: 100%;
-  padding: 8px;
+  padding: 8px 10px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 13px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .form-input:focus {
   outline: none;
   border-color: var(--accent-color);
-}
-
-[data-theme="dark"] .form-input {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-}
-
-[data-theme="dark"] .form-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .modal-footer {
@@ -936,65 +916,64 @@ body {
 }
 
 .btn {
-  padding: 6px 12px;
+  padding: 7px 14px;
   border: none;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn-primary {
   background: var(--accent-color);
   color: white;
+  box-shadow: 0 1px 2px var(--accent-ring);
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--accent-ring);
 }
 
 .btn-secondary {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-[data-theme="dark"] .btn-secondary {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background: var(--border-color);
-}
-
-[data-theme="dark"] .btn-secondary:hover {
-  background: var(--bg-secondary);
+  background: var(--accent-soft);
   border-color: var(--accent-color);
-  transform: translateY(-1px);
+  color: var(--accent-color);
 }
 
-/* 滚动条样式已移除，使用浏览器默认样式 */
-
-/* 选择文本样式 */
+/* ---------------------------------------
+   17. 选择文本 + 焦点
+   --------------------------------------- */
 ::selection {
-  background: rgba(102, 126, 234, 0.3);
+  background: var(--accent-ring);
   color: var(--text-primary);
 }
 
 ::-moz-selection {
-  background: rgba(102, 126, 234, 0.3);
+  background: var(--accent-ring);
   color: var(--text-primary);
 }
 
-/* 焦点样式 */
-*:focus {
-  outline: 2px solid rgba(102, 126, 234, 0.5);
+*:focus-visible {
+  outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
-/* 工具类 */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---------------------------------------
+   18. 工具类
+   --------------------------------------- */
 .hidden {
   display: none !important;
 }
@@ -1003,7 +982,6 @@ body {
   display: none;
 }
 
-/* 性能优化类 */
 .no-animation {
   transition: none !important;
   animation: none !important;
@@ -1014,11 +992,13 @@ body {
   will-change: transform;
 }
 
-/* 淡入动画 */
+/* ---------------------------------------
+   19. 入场动画
+   --------------------------------------- */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -1029,7 +1009,7 @@ body {
 @keyframes slideInUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -1037,33 +1017,28 @@ body {
   }
 }
 
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
+/* 瀑布流(masonry-js)专用 —— 不动 transform，
+   只渐入不平移,避免覆盖 layoutMasonry 设的布局 transform */
+@keyframes masonryFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .bookmark-group {
-  animation: slideInUp 0.6s ease-out;
+  animation: slideInUp 0.4s ease-out;
 }
 
 .bookmark-item {
-  animation: fadeIn 0.4s ease-out;
+  animation: fadeIn 0.3s ease-out;
 }
 
-/* 加载动画增强 */
-.spinner {
-  animation: spin 1s linear infinite, pulse 2s ease-in-out infinite;
-}
-
-/* 响应式设计增强 */
+/* ---------------------------------------
+   20. 响应式补充
+   --------------------------------------- */
 @media (max-width: 1024px) {
   .bookmark-container {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 18px;
+    column-count: 2;
+    column-gap: 18px;
   }
 }
 
@@ -1071,55 +1046,35 @@ body {
   .container {
     padding: 15px;
   }
-  
   .header {
     flex-direction: column;
     gap: 15px;
     align-items: stretch;
   }
-  
   .search-container {
     justify-content: center;
   }
-  
   .search-input {
     width: 250px;
   }
-  
   .toolbar {
     justify-content: center;
+    position: static;
   }
-  
   .toolbar button {
     width: 36px;
     height: 36px;
     font-size: 14px;
   }
-  
   .category-nav {
     flex-direction: column;
     gap: 15px;
     align-items: stretch;
   }
-  
   .category-tabs {
     justify-content: center;
     flex-wrap: wrap;
   }
-  
-  .bookmark-container {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-  
-  .bookmark-group {
-    padding: 12px;
-  }
-  
-  .bookmark-item {
-    padding: 8px;
-  }
-  
   .modal-content {
     margin: 20px;
     width: calc(100% - 40px);
@@ -1130,85 +1085,17 @@ body {
   .container {
     padding: 16px 10px;
   }
-  
   .search-input {
     width: 200px;
     font-size: 12px;
   }
-  
   .toolbar button {
     width: 32px;
     height: 32px;
     font-size: 14px;
   }
-  
   .category-tab {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-  
-  .bookmark-container {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  
-  .bookmark-group {
-    padding: 10px;
-  }
-  
-  .bookmark-item {
-    padding: 6px 8px;
-  }
-  
-  .bookmark-favicon {
-    width: 18px;
-    height: 18px;
-    margin-right: 10px;
-  }
-  
-  .bookmark-title {
-    font-size: 12px;
-  }
-  
-  .bookmark-url {
-    font-size: 10px;
-  }
-}
-
-@media (max-width: 360px) {
-  .search-input {
-    width: 160px;
+    padding: 6px 12px;
     font-size: 11px;
-  }
-  
-  .category-tabs {
-    gap: 3px;
-  }
-  
-  .category-tab {
-    padding: 5px 8px;
-    font-size: 9px;
-  }
-  
-  .bookmark-group {
-    padding: 10px;
-  }
-  
-  .bookmark-item {
-    padding: 8px;
-  }
-  
-  .bookmark-favicon {
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
-  }
-  
-  .bookmark-title {
-    font-size: 11px;
-  }
-  
-  .bookmark-url {
-    font-size: 9px;
   }
 }

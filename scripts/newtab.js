@@ -32,8 +32,8 @@ const i18n = {
         editUrl: 'URL:',
         save: '保存',
         cancel: '取消',
-        // 确认对话框
-        confirmDelete: '确定要删除书签',
+        // 确认对话框（{title} 由代码替换为书签标题）
+        confirmDelete: '确定要删除书签 "{title}" 吗？',
         // 错误信息
         initError: '初始化失败，请刷新页面重试',
         loadError: '加载书签失败',
@@ -79,8 +79,8 @@ const i18n = {
         editUrl: 'URL:',
         save: 'Save',
         cancel: 'Cancel',
-        // 确认对话框
-        confirmDelete: 'Are you sure you want to delete bookmark',
+        // 确认对话框（{title} replaced with bookmark title at runtime）
+        confirmDelete: 'Are you sure you want to delete bookmark "{title}"?',
         // 错误信息
         initError: 'Initialization failed, please refresh the page and try again',
         loadError: 'Failed to load bookmarks',
@@ -107,7 +107,7 @@ class BookmarkManager {
         this.theme = 'light';
         this.language = 'zh'; // 默认中文
         this.refreshTimeout = null; // 防抖定时器
-        
+
         this.init();
     }
 
@@ -121,11 +121,26 @@ class BookmarkManager {
         try {
             await this.loadSettings();
             await this.loadBookmarks();
+            // 书签变化监听器只在初始化时注册一次，避免每次刷新累积
+            this.setupBookmarkListeners();
             this.setupEventListeners();
             this.applyTheme();
             this.applyLanguage();
-            // 设置默认分类状态
+            // 应用上次记住的视图模式(网格/列表)和分类(文件夹/网址/最近/全部) ——
+            // switchView / switchCategory 内部都会触发一次 saveSettings(),init 时是冗余写,
+            // 但只发生一次且无害,换来代码简单。
+            this.switchView(this.currentView);
             this.switchCategory(this.currentCategory);
+
+            // 一切就绪 —— 加 html.ready,让按钮 active 着色"由浅入深"平滑过渡出现。
+            // 双 RAF：确保浏览器先完成首次 paint(中性按钮),
+            // 下一帧才 add class,这样 CSS transition 才会真正触发(否则浏览器可能
+            // 把 add class 和首次 paint 合并,看不到过渡)。
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    document.documentElement.classList.add('ready');
+                });
+            });
         } catch (error) {
             console.error('初始化失败:', error);
             this.showError(this.t('initError'));
@@ -142,45 +157,56 @@ class BookmarkManager {
         try {
             // 检查是否在Chrome扩展环境中
             if (typeof chrome !== 'undefined' && chrome.storage) {
-                const result = await chrome.storage.sync.get(['theme', 'viewMode', 'language', 'autoSystemTheme']);
+                const result = await chrome.storage.sync.get(['theme', 'viewMode', 'language', 'autoSystemTheme', 'category']);
                 this.theme = result.theme || 'light';
                 this.currentView = result.viewMode || 'grid';
                 this.language = result.language || 'zh';
                 this.autoSystemTheme = result.autoSystemTheme !== false; // 默认开启跟随系统主题
+                this.currentCategory = result.category || 'folder';
             } else {
                 // 在普通浏览器环境中使用localStorage
                 this.theme = localStorage.getItem('theme') || 'light';
                 this.currentView = localStorage.getItem('viewMode') || 'grid';
                 this.language = localStorage.getItem('language') || 'zh';
                 this.autoSystemTheme = localStorage.getItem('autoSystemTheme') !== 'false'; // 默认开启跟随系统主题
+                this.currentCategory = localStorage.getItem('category') || 'folder';
             }
             
-            // 如果开启了跟随系统主题且系统为深色模式，自动切换到深色主题
-            if (this.autoSystemTheme && this.isSystemDarkMode()) {
-                this.theme = 'dark';
+            // 跟随系统主题时，以系统当前状态为准（对称处理 dark/light），
+            // 避免新标签页未打开时错过 matchMedia 的 change 事件，导致卡在旧主题
+            if (this.autoSystemTheme) {
+                this.theme = this.isSystemDarkMode() ? 'dark' : 'light';
             }
         } catch (error) {
             console.error('加载设置失败:', error);
         }
     }
 
-    // 保存设置
+    // 保存设置 —— 双写：chrome.storage.sync 是真源(跨设备同步)，
+    // localStorage 是本地同步可读镜像，给 head 的 preferences-init.js / theme-init.js 用。
     async saveSettings() {
+        // 1) localStorage 镜像（同步,任何环境都尝试写）—— 让下次打开新标签页时
+        //    preferences-init.js 能在 body 渲染前立刻读到,实现 0 闪烁
         try {
-            // 检查是否在Chrome扩展环境中
+            localStorage.setItem('theme', this.theme);
+            localStorage.setItem('viewMode', this.currentView);
+            localStorage.setItem('language', this.language);
+            localStorage.setItem('autoSystemTheme', this.autoSystemTheme.toString());
+            localStorage.setItem('category', this.currentCategory);
+        } catch (e) {
+            // localStorage 不可用（隐私模式等），跳过镜像
+        }
+
+        // 2) chrome.storage.sync 真源（仅扩展环境）—— 跨设备同步
+        try {
             if (typeof chrome !== 'undefined' && chrome.storage) {
                 await chrome.storage.sync.set({
                     theme: this.theme,
                     viewMode: this.currentView,
                     language: this.language,
-                    autoSystemTheme: this.autoSystemTheme
+                    autoSystemTheme: this.autoSystemTheme,
+                    category: this.currentCategory
                 });
-            } else {
-                // 在普通浏览器环境中使用localStorage
-                localStorage.setItem('theme', this.theme);
-                localStorage.setItem('viewMode', this.currentView);
-                localStorage.setItem('language', this.language);
-                localStorage.setItem('autoSystemTheme', this.autoSystemTheme.toString());
             }
         } catch (error) {
             console.error('保存设置失败:', error);
@@ -196,8 +222,8 @@ class BookmarkManager {
             if (typeof chrome !== 'undefined' && chrome.bookmarks) {
                 const bookmarkTree = await chrome.bookmarks.getTree();
                 this.bookmarks = this.parseBookmarkTree(bookmarkTree);
-                // 监听书签变化
-                this.setupBookmarkListeners();
+                // 监听器在 init() 中只注册一次，loadBookmarks 不再调用 setupBookmarkListeners，
+                // 否则每次防抖刷新都会重复 addListener，长时间使用会内存泄漏和重复触发
             } else {
                 // 在普通浏览器环境中使用模拟数据
                 this.bookmarks = this.getMockBookmarks();
@@ -260,7 +286,9 @@ class BookmarkManager {
         }
     }
 
-    // 获取网站图标URL
+    // 获取网站图标URL —— Google favicon CDN。
+    // Google 不认识的域名(内网、新站、SaaS 租户等)会返回 Google 的灰色"地球"占位图
+    // (HTTP 200 + 合法 PNG)。这是预期行为，不再做内网启发式 / 首字母圆 fallback。
     getFaviconUrl(url) {
         try {
             const urlObj = new URL(url);
@@ -318,116 +346,123 @@ class BookmarkManager {
 
         // 系统主题变化监听
         this.setupSystemThemeListener();
-        
+
         // 右键菜单
         this.setupContextMenu();
-        
+
         // 编辑模态框
         this.setupEditModal();
+
+        // 窗口大小变化时重排瀑布流(150ms 防抖,避免拖拽时频繁布局)
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => this.layoutMasonry(), 150);
+        });
     }
 
-    // 获取模拟书签数据
+    // 获取模拟书签数据（仅用于非扩展环境下的本地预览/调试，请勿写入任何真实业务 URL）
     getMockBookmarks() {
         return [
             {
                 id: '1',
-                title: '本地环境',
-                url: 'http://127.0.0.1:8848/nacos',
+                title: 'GitHub',
+                url: 'https://github.com',
                 dateAdded: Date.now() - 86400000,
-                parentId: 'nacos',
-                folderPath: 'Nacos',
-                domain: '127.0.0.1',
-                favicon: 'https://www.google.com/s2/favicons?domain=127.0.0.1&sz=32'
+                parentId: 'dev',
+                folderPath: '开发工具',
+                domain: 'github.com',
+                favicon: 'https://www.google.com/s2/favicons?domain=github.com&sz=32'
             },
             {
                 id: '2',
-                title: 'DEV 环境',
-                url: 'http://10.66.67.2:8083/nacos',
+                title: 'MDN Web Docs',
+                url: 'https://developer.mozilla.org/',
                 dateAdded: Date.now() - 172800000,
-                parentId: 'nacos',
-                folderPath: 'Nacos',
-                domain: '10.66.67.2',
-                favicon: 'https://www.google.com/s2/favicons?domain=10.66.67.2&sz=32'
+                parentId: 'dev',
+                folderPath: '开发工具',
+                domain: 'developer.mozilla.org',
+                favicon: 'https://www.google.com/s2/favicons?domain=developer.mozilla.org&sz=32'
             },
             {
                 id: '3',
-                title: 'SIT 信创环境',
-                url: 'https://sit-xc-nacos.faw.cn/nacos',
+                title: 'Stack Overflow',
+                url: 'https://stackoverflow.com',
                 dateAdded: Date.now() - 259200000,
-                parentId: 'nacos',
-                folderPath: 'Nacos',
-                domain: 'sit-xc-nacos.faw.cn',
-                favicon: 'https://www.google.com/s2/favicons?domain=sit-xc-nacos.faw.cn&sz=32'
+                parentId: 'dev',
+                folderPath: '开发工具',
+                domain: 'stackoverflow.com',
+                favicon: 'https://www.google.com/s2/favicons?domain=stackoverflow.com&sz=32'
             },
             {
                 id: '4',
-                title: 'SIT 环境',
-                url: 'https://sit-iwork.faw.cn/login',
+                title: 'Wikipedia',
+                url: 'https://www.wikipedia.org',
                 dateAdded: Date.now() - 345600000,
-                parentId: 'iwork',
-                folderPath: '一汽云工作台',
-                domain: 'sit-iwork.faw.cn',
-                favicon: 'https://www.google.com/s2/favicons?domain=sit-iwork.faw.cn&sz=32'
+                parentId: 'reference',
+                folderPath: '参考资料',
+                domain: 'wikipedia.org',
+                favicon: 'https://www.google.com/s2/favicons?domain=wikipedia.org&sz=32'
             },
             {
                 id: '5',
-                title: 'UAT 环境',
-                url: 'https://uat-iwork.faw.cn/login',
+                title: 'Google Scholar',
+                url: 'https://scholar.google.com',
                 dateAdded: Date.now() - 432000000,
-                parentId: 'iwork',
-                folderPath: '一汽云工作台',
-                domain: 'uat-iwork.faw.cn',
-                favicon: 'https://www.google.com/s2/favicons?domain=uat-iwork.faw.cn&sz=32'
+                parentId: 'reference',
+                folderPath: '参考资料',
+                domain: 'scholar.google.com',
+                favicon: 'https://www.google.com/s2/favicons?domain=scholar.google.com&sz=32'
             },
             {
                 id: '6',
-                title: 'PROD 环境',
-                url: 'https://iwork.faw.cn/login',
+                title: 'YouTube',
+                url: 'https://www.youtube.com',
                 dateAdded: Date.now() - 518400000,
-                parentId: 'iwork',
-                folderPath: '一汽云工作台',
-                domain: 'iwork.faw.cn',
-                favicon: 'https://www.google.com/s2/favicons?domain=iwork.faw.cn&sz=32'
+                parentId: 'media',
+                folderPath: '娱乐',
+                domain: 'youtube.com',
+                favicon: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=32'
             },
             {
                 id: '7',
-                title: '032-流水线发布',
-                url: 'https://iwork.faw.cn/devops/project/overview?appId=5022&businessId=4655969841&content=app&projectId=8333',
+                title: 'Bilibili',
+                url: 'https://www.bilibili.com',
                 dateAdded: Date.now() - 604800000,
-                parentId: 'tools',
-                folderPath: '快捷入口',
-                domain: 'iwork.faw.cn',
-                favicon: 'https://www.google.com/s2/favicons?domain=iwork.faw.cn&sz=32'
+                parentId: 'media',
+                folderPath: '娱乐',
+                domain: 'bilibili.com',
+                favicon: 'https://www.google.com/s2/favicons?domain=bilibili.com&sz=32'
             },
             {
                 id: '8',
-                title: 'Kimi.ai',
-                url: 'https://kimi.moonshot.cn/',
-                dateAdded: Date.now() - 691200000,
-                parentId: 'websites',
-                folderPath: '常用网站',
-                domain: 'kimi.moonshot.cn',
-                favicon: 'https://www.google.com/s2/favicons?domain=kimi.moonshot.cn&sz=32'
-            },
-            {
-                id: '9',
-                title: '稀土掘金',
+                title: '掘金',
                 url: 'https://juejin.cn/recommended',
-                dateAdded: Date.now() - 777600000,
+                dateAdded: Date.now() - 691200000,
                 parentId: 'websites',
                 folderPath: '常用网站',
                 domain: 'juejin.cn',
                 favicon: 'https://www.google.com/s2/favicons?domain=juejin.cn&sz=32'
             },
             {
+                id: '9',
+                title: '知乎',
+                url: 'https://www.zhihu.com',
+                dateAdded: Date.now() - 777600000,
+                parentId: 'websites',
+                folderPath: '常用网站',
+                domain: 'zhihu.com',
+                favicon: 'https://www.google.com/s2/favicons?domain=zhihu.com&sz=32'
+            },
+            {
                 id: '10',
-                title: 'GitHub',
-                url: 'https://github.com',
+                title: 'Hacker News',
+                url: 'https://news.ycombinator.com',
                 dateAdded: Date.now() - 864000000,
-                parentId: 'dev',
-                folderPath: '开发工具',
-                domain: 'github.com',
-                favicon: 'https://www.google.com/s2/favicons?domain=github.com&sz=32'
+                parentId: 'websites',
+                folderPath: '常用网站',
+                domain: 'news.ycombinator.com',
+                favicon: 'https://www.google.com/s2/favicons?domain=news.ycombinator.com&sz=32'
             }
         ];
     }
@@ -487,26 +522,31 @@ class BookmarkManager {
     // 切换分类
     switchCategory(category) {
         this.currentCategory = category;
-        
+        // 同步写 html data 属性 —— CSS 立刻吃到（与 preferences-init.js 用同一套选择器）
+        document.documentElement.dataset.category = category;
+
         // 更新标签状态
         document.querySelectorAll('.category-tab').forEach(tab => {
             tab.classList.remove('active');
         });
         document.querySelector(`[data-category="${category}"]`).classList.add('active');
-        
+
         this.filterAndRenderBookmarks();
+        this.saveSettings(); // 记住用户选择,刷新后保持
     }
 
     // 切换视图
     switchView(view) {
         this.currentView = view;
-        
+        // 同步写 html data 属性 —— CSS 立刻吃到（与 preferences-init.js 用同一套选择器）
+        document.documentElement.dataset.view = view;
+
         // 更新按钮状态
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.classList.remove('active');
         });
         document.getElementById(view + 'View').classList.add('active');
-        
+
         // 更新容器类名
         const container = document.getElementById('bookmarksContainer');
         if (view === 'list') {
@@ -514,8 +554,12 @@ class BookmarkManager {
         } else {
             container.classList.remove('list-view');
         }
-        
+
         this.saveSettings();
+        // 视图切换后列数变了(grid 3 列 → list 1 列),必须重排瀑布流。
+        // CSS 的 .list-view / html[data-view] 规则在 JS 接管模式下不再决定布局,
+        // 真正的列数由 layoutMasonry() 根据 this.currentView 计算。
+        this.layoutMasonry();
     }
 
     // 切换主题
@@ -676,6 +720,60 @@ class BookmarkManager {
             const groupEl = this.createBookmarkGroup(group);
             container.appendChild(groupEl);
         });
+
+        // 启用 JS 瀑布流接管布局,然后用"行优先 + 最矮列"算法重排,
+        // 让卡片视觉顺序跟书签栏顺序一致(默认 CSS multi-column 是列优先)
+        container.classList.add('masonry-js');
+        this.layoutMasonry();
+    }
+
+    // 瀑布流布局(Pinterest 风格 —— 行优先 + 最矮列追加)
+    layoutMasonry() {
+        const container = document.getElementById('bookmarksContainer');
+        if (!container || container.classList.contains('hidden')) return;
+
+        const cards = Array.from(container.querySelectorAll(':scope > .bookmark-group'));
+        if (cards.length === 0) {
+            container.style.height = '';
+            return;
+        }
+
+        // 决定列数 —— 跟原 CSS media query 一致
+        const cw = container.clientWidth;
+        const singleColCategory = this.currentCategory === 'recent' || this.currentCategory === 'all';
+        let cols;
+        if (this.currentView === 'list' || singleColCategory || cw < 768) {
+            cols = 1;
+        } else if (cw < 1200) {
+            cols = 2;
+        } else {
+            cols = 3;
+        }
+
+        const gap = 24;
+        const colW = cols === 1 ? cw : Math.floor((cw - (cols - 1) * gap) / cols);
+
+        // 先批量设宽度,触发一次 reflow,再统一读 offsetHeight 性能更好
+        cards.forEach(card => {
+            card.style.width = colW + 'px';
+        });
+
+        // 行优先放置:遍历卡片(=书签栏顺序),每张放到当前最矮列
+        const colHeights = new Array(cols).fill(0);
+        cards.forEach(card => {
+            // 选最矮列
+            let minIdx = 0;
+            for (let i = 1; i < cols; i++) {
+                if (colHeights[i] < colHeights[minIdx]) minIdx = i;
+            }
+            const x = minIdx * (colW + gap);
+            const y = colHeights[minIdx];
+            card.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+            colHeights[minIdx] += card.offsetHeight + gap;
+        });
+
+        // 容器高度 = 最高列(减最后一个无用 gap)
+        container.style.height = (Math.max(...colHeights) - gap) + 'px';
     }
 
     // 分组书签
@@ -751,53 +849,61 @@ class BookmarkManager {
     createBookmarkGroup(group) {
         const groupEl = document.createElement('div');
         groupEl.className = 'bookmark-group';
-        
+
         // 移除宽版逻辑，所有卡片都使用单列宽度
         // 统一为3列布局，不再根据书签数量添加wide类
-        
+
         // 创建表格
         const tableEl = document.createElement('table');
         tableEl.className = 'bookmark-table';
-        
-        // 创建表头
+
+        // 创建表头：favicon 占位列 + 标题列 + URL 列
         const theadEl = document.createElement('thead');
         const headerRowEl = document.createElement('tr');
-        
+
+        // favicon 列表头（空，仅占位让列宽对齐）
+        const faviconHeaderEl = document.createElement('th');
+
         const titleHeaderEl = document.createElement('th');
         titleHeaderEl.textContent = group.title;
-        titleHeaderEl.style.cursor = 'pointer';
-        titleHeaderEl.addEventListener('click', () => {
-            this.toggleGroup(groupEl, titleHeaderEl);
-        });
-        
+
         const urlHeaderEl = document.createElement('th');
         urlHeaderEl.textContent = this.t('urlLabel');
-        
+
+        headerRowEl.appendChild(faviconHeaderEl);
         headerRowEl.appendChild(titleHeaderEl);
         headerRowEl.appendChild(urlHeaderEl);
+
         theadEl.appendChild(headerRowEl);
-        
+
         // 创建表体
         const tbodyEl = document.createElement('tbody');
         tbodyEl.className = 'bookmark-list';
-        
+
         group.bookmarks.forEach(bookmark => {
             const rowEl = this.createBookmarkTableRow(bookmark);
             tbodyEl.appendChild(rowEl);
         });
-        
+
         tableEl.appendChild(theadEl);
         tableEl.appendChild(tbodyEl);
         groupEl.appendChild(tableEl);
-        
+
         return groupEl;
     }
 
     // 创建书签表格行元素
     createBookmarkTableRow(bookmark) {
         const rowEl = document.createElement('tr');
+        // 不要给 tr 加 .bookmark-item class — CSS 中 .bookmark-item { display:none }
+        // 会把所有行藏掉。右键菜单监听器通过 [data-bookmark-id] 定位即可。
         rowEl.dataset.bookmarkId = bookmark.id;
-        
+
+        // favicon 列
+        const faviconCellEl = document.createElement('td');
+        faviconCellEl.className = 'bookmark-favicon-cell';
+        faviconCellEl.appendChild(this.createFaviconElement(bookmark));
+
         // 标题列
         const titleCellEl = document.createElement('td');
         const titleLinkEl = document.createElement('a');
@@ -805,7 +911,7 @@ class BookmarkManager {
         titleLinkEl.textContent = bookmark.title;
         titleLinkEl.title = bookmark.title;
         titleCellEl.appendChild(titleLinkEl);
-        
+
         // URL列
         const urlCellEl = document.createElement('td');
         const urlLinkEl = document.createElement('a');
@@ -813,11 +919,25 @@ class BookmarkManager {
         urlLinkEl.textContent = bookmark.url;
         urlLinkEl.title = bookmark.url;
         urlCellEl.appendChild(urlLinkEl);
-        
+
+        rowEl.appendChild(faviconCellEl);
         rowEl.appendChild(titleCellEl);
         rowEl.appendChild(urlCellEl);
-        
+
         return rowEl;
+    }
+
+    // 创建 favicon 元素 —— 简单 img，src 来自 Google CDN。
+    // Google 不认识的域名会返回它的灰色"地球"占位图(HTTP 200,不触发 onerror)，
+    // 这是预期行为，不再做首字母圆 fallback。
+    createFaviconElement(bookmark) {
+        const img = document.createElement('img');
+        img.className = 'bookmark-favicon';
+        img.alt = '';
+        img.loading = 'lazy';
+        img.referrerPolicy = 'no-referrer';
+        if (bookmark.favicon) img.src = bookmark.favicon;
+        return img;
     }
     
     // 保留原有的书签项目创建方法作为备用
@@ -860,31 +980,19 @@ class BookmarkManager {
         return itemEl;
     }
 
-    // 切换分组展开/折叠
-    toggleGroup(groupEl, headerEl) {
-        const tbodyEl = groupEl.querySelector('.bookmark-list');
-        const isCollapsed = tbodyEl.style.display === 'none';
-        
-        if (isCollapsed) {
-            tbodyEl.style.display = '';
-            headerEl.style.opacity = '1';
-        } else {
-            tbodyEl.style.display = 'none';
-            headerEl.style.opacity = '0.7';
-        }
-    }
+    // 切换分组展开/折叠 —— 已移除,表头不再可点击
+    // toggleGroup(groupEl, headerEl) { ... }
 
     // 设置系统主题变化监听
     setupSystemThemeListener() {
         if (window.matchMedia) {
             const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
             
-            // 监听系统主题变化
+            // 监听系统主题变化(跟随系统时不写回 storage,storage 只记用户的显式选择)
             darkModeQuery.addEventListener('change', (e) => {
                 if (this.autoSystemTheme) {
                     this.theme = e.matches ? 'dark' : 'light';
                     this.applyTheme();
-                    this.saveSettings();
                 }
             });
         }
@@ -896,13 +1004,18 @@ class BookmarkManager {
         let currentBookmarkId = null;
         
         document.addEventListener('contextmenu', (e) => {
-            const bookmarkItem = e.target.closest('.bookmark-item');
+            // 用 data 属性定位书签节点（兼容 table 行和旧的 grid item 两种结构）；
+            // 不能用 .bookmark-item，CSS 中该 class 是 display:none，table 行不能挂它
+            const bookmarkItem = e.target.closest('[data-bookmark-id]');
             if (bookmarkItem) {
                 e.preventDefault();
                 currentBookmarkId = bookmarkItem.dataset.bookmarkId;
-                
-                contextMenu.style.left = e.pageX + 'px';
-                contextMenu.style.top = e.pageY + 'px';
+
+                // .context-menu 是 position: fixed,所以用 viewport 坐标(clientX/Y)。
+                // 不能用 pageX/Y(那是相对 document 的坐标 = clientY + scrollY),
+                // 否则页面滚动后菜单会跑到视口下方很远的位置,看起来"没反应"。
+                contextMenu.style.left = e.clientX + 'px';
+                contextMenu.style.top = e.clientY + 'px';
                 contextMenu.classList.remove('hidden');
             }
         });
@@ -937,12 +1050,16 @@ class BookmarkManager {
                 this.showEditModal(bookmark);
                 break;
             case 'delete':
-                if (confirm(`${this.t('confirmDelete')} "${bookmark.title}" 吗？`)) {
-                    try {
-                        await chrome.bookmarks.remove(bookmarkId);
-                    } catch (error) {
-                        console.error('删除书签失败:', error);
-                        alert(this.t('deleteError'));
+                {
+                    // 完整的句子放进 i18n 词条，避免英文环境下蹦出硬编码的"吗？"
+                    const confirmMsg = this.t('confirmDelete').replace('{title}', bookmark.title);
+                    if (confirm(confirmMsg)) {
+                        try {
+                            await chrome.bookmarks.remove(bookmarkId);
+                        } catch (error) {
+                            console.error('删除书签失败:', error);
+                            alert(this.t('deleteError'));
+                        }
                     }
                 }
                 break;

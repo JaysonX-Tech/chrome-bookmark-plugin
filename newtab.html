@@ -5,48 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>书签首页</title>
     <link rel="stylesheet" href="styles/newtab.css">
-    <!-- 立即执行主题检测脚本，避免FOUC -->
-    <script>
-        // 主题检测脚本 - 必须在页面加载前执行
-        (function() {
-            // 检查系统是否为深色模式
-            function isSystemDarkMode() {
-                return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            }
-            
-            // 立即设置初始主题，避免闪烁
-            let initialTheme = 'light'; // 默认浅色主题
-            
-            // 检查系统深色模式偏好
-            if (isSystemDarkMode()) {
-                initialTheme = 'dark';
-            }
-            
-            // 立即应用初始主题
-            document.documentElement.setAttribute('data-theme', initialTheme);
-            
-            // 检查是否在Chrome扩展环境中
-            if (typeof chrome !== 'undefined' && chrome.storage) {
-                // Chrome扩展环境：异步获取用户设置的主题
-                chrome.storage.sync.get(['theme'], function(result) {
-                    if (result.theme && result.theme !== initialTheme) {
-                        document.documentElement.setAttribute('data-theme', result.theme);
-                    }
-                });
-            } else {
-                // 普通浏览器环境：同步获取主题设置
-                try {
-                    const savedTheme = localStorage.getItem('theme');
-                    if (savedTheme && savedTheme !== initialTheme) {
-                        document.documentElement.setAttribute('data-theme', savedTheme);
-                    }
-                } catch (error) {
-                    // localStorage不可用时，保持系统偏好主题
-                    console.warn('localStorage不可用，使用系统主题偏好');
-                }
-            }
-        })();
-    </script>
+    <!-- 主题检测脚本：必须在页面渲染前同步执行，避免 FOUC。
+         MV3 默认 CSP 禁止 inline <script>，所以提取为外部脚本通过 'self' 加载。 -->
+    <script src="scripts/theme-init.js"></script>
+    <!-- 视图模式 / 分类偏好预设：同步阻塞读 localStorage 镜像，
+         把 html[data-view] [data-category] 设上，让 CSS 选择器立刻命中，
+         避免新标签页打开时短暂闪烁默认状态(0 闪烁的关键)。 -->
+    <script src="scripts/preferences-init.js"></script>
 </head>
 <body>
     <div class="container">
