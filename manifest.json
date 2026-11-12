@@ -5,6 +5,7 @@
   "description": "可以顺序平铺展示的浏览器书签栏，并替换当前新标签页",
   "permissions": [
     "bookmarks",
+    "favicon",
     "storage",
     "activeTab"
   ],

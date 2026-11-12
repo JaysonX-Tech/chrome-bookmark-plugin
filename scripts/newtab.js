@@ -99,6 +99,8 @@ const i18n = {
 // Chrome书签首页展示插件 - 主要逻辑
 class BookmarkManager {
     constructor() {
+        this.faviconRevision = Date.now();
+        this.folderOrder = [];
         this.bookmarks = [];
         this.filteredBookmarks = [];
         this.currentCategory = 'folder';
@@ -120,6 +122,12 @@ class BookmarkManager {
     async init() {
         try {
             await this.loadSettings();
+            try {
+                const saved = typeof chrome !== 'undefined' && chrome.storage?.local
+                    ? (await chrome.storage.local.get('folderOrder')).folderOrder
+                    : JSON.parse(localStorage.getItem('folderOrder') || '[]');
+                if (Array.isArray(saved)) this.folderOrder = saved.filter(id => typeof id === 'string');
+            } catch (error) { console.warn('无法读取文件夹顺序', error); }
             await this.loadBookmarks();
             // 书签变化监听器只在初始化时注册一次，避免每次刷新累积
             this.setupBookmarkListeners();
@@ -286,16 +294,38 @@ class BookmarkManager {
         }
     }
 
-    // 获取网站图标URL —— Google favicon CDN。
-    // Google 不认识的域名(内网、新站、SaaS 租户等)会返回 Google 的灰色"地球"占位图
-    // (HTTP 200 + 合法 PNG)。这是预期行为，不再做内网启发式 / 首字母圆 fallback。
+    // 扩展内按完整页面地址读取浏览器缓存，保留同域名不同页面的图标。
     getFaviconUrl(url) {
         try {
             const urlObj = new URL(url);
+            if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+                const faviconUrl = new URL(chrome.runtime.getURL('/_favicon/'));
+                faviconUrl.searchParams.set('pageUrl', url);
+                faviconUrl.searchParams.set('size', '32');
+                faviconUrl.searchParams.set('_refresh', String(this.faviconRevision));
+                return faviconUrl.href;
+            }
+            // 普通网页预览没有扩展接口，仅在此环境使用公开图标服务。
             return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`;
         } catch {
             return null;
         }
+    }
+
+    // 只更新图片，不重绘卡片，保留滚动位置、展开状态和拖动状态。
+    refreshFavicons() {
+        if (document.visibilityState !== 'visible' ||
+            typeof chrome === 'undefined' || !chrome.runtime?.id) return;
+        this.faviconRevision = Math.max(Date.now(), this.faviconRevision + 1);
+        const byId = new Map();
+        this.bookmarks.forEach(bookmark => {
+            bookmark.favicon = this.getFaviconUrl(bookmark.url);
+            byId.set(bookmark.id, bookmark);
+        });
+        document.querySelectorAll('[data-bookmark-id] img.bookmark-favicon').forEach(img => {
+            const bookmark = byId.get(img.closest('[data-bookmark-id]').dataset.bookmarkId);
+            if (bookmark?.favicon) img.src = bookmark.favicon;
+        });
     }
 
     // 设置事件监听器
@@ -303,15 +333,34 @@ class BookmarkManager {
         // 搜索功能
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
+        const clearSearch = document.getElementById('clearSearch');
         
         searchInput.addEventListener('input', (e) => {
             this.searchQuery = e.target.value.toLowerCase();
+            clearSearch.hidden = !e.target.value;
             this.filterAndRenderBookmarks();
         });
         
         searchBtn.addEventListener('click', () => {
             searchInput.focus();
         });
+
+        const clearQuery = () => {
+            searchInput.value = '';
+            this.searchQuery = '';
+            clearSearch.hidden = true;
+            this.filterAndRenderBookmarks();
+            searchInput.focus();
+        };
+        clearSearch.addEventListener('click', clearQuery);
+        searchInput.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && searchInput.value) {
+                event.preventDefault();
+                clearQuery();
+            }
+        });
+
+        document.getElementById('resetFolderOrder').addEventListener('click', () => this.resetFolderOrder());
 
         // 分类切换
         document.querySelectorAll('.category-tab').forEach(tab => {
@@ -343,6 +392,20 @@ class BookmarkManager {
         document.getElementById('githubLink').addEventListener('click', () => {
             window.open('https://github.com/JaysonX-Tech/chrome-bookmark-plugin', '_blank');
         });
+
+        // 返回页面时刷新一次，并稍后补读一次，给浏览器图标缓存留出更新时间。
+        const scheduleFaviconRefresh = () => {
+            clearTimeout(this.faviconRefreshTimer);
+            clearTimeout(this.faviconRetryTimer);
+            if (document.visibilityState !== 'visible') return;
+            this.faviconRefreshTimer = setTimeout(() => {
+                this.refreshFavicons();
+                this.faviconRetryTimer = setTimeout(() => this.refreshFavicons(), 2000);
+            }, 150);
+        };
+        document.addEventListener('visibilitychange', scheduleFaviconRefresh);
+        window.addEventListener('focus', scheduleFaviconRefresh);
+        window.addEventListener('pageshow', scheduleFaviconRefresh);
 
         // 系统主题变化监听
         this.setupSystemThemeListener();
@@ -588,6 +651,7 @@ class BookmarkManager {
 
     // 应用语言
     applyLanguage() {
+        document.documentElement.lang = this.language === 'zh' ? 'zh-CN' : 'en';
         const languageBtn = document.getElementById('languageToggle');
         languageBtn.textContent = this.language === 'zh' ? '中' : 'EN';
         languageBtn.title = this.t('toggleLanguage');
@@ -598,6 +662,9 @@ class BookmarkManager {
         // 更新搜索框占位符
         const searchInput = document.getElementById('searchInput');
         searchInput.placeholder = this.t('searchPlaceholder');
+        searchInput.setAttribute('aria-label', this.t('searchPlaceholder'));
+        document.getElementById('searchBtn').setAttribute('aria-label', this.t('searchPlaceholder'));
+        document.getElementById('clearSearch').setAttribute('aria-label', this.language === 'zh' ? '清空搜索' : 'Clear search');
         
         // 更新分类标签
         const categoryTabs = document.querySelectorAll('.category-tab');
@@ -686,6 +753,11 @@ class BookmarkManager {
 
     // 渲染书签
     renderBookmarks() {
+        const resetButton = document.getElementById('resetFolderOrder');
+        resetButton.hidden = this.currentCategory !== 'folder';
+        resetButton.disabled = !this.folderOrder.length || !!this.orderSaving;
+        resetButton.textContent = this.language === 'zh' ? '↺ 恢复顺序' : '↺ Reset order';
+        resetButton.title = this.language === 'zh' ? '恢复为浏览器书签中的文件夹顺序' : 'Restore browser bookmark folder order';
         const container = document.getElementById('bookmarksContainer');
         const emptyState = document.getElementById('emptyState');
         const noResults = document.getElementById('noResults');
@@ -717,7 +789,7 @@ class BookmarkManager {
         
         // 渲染分组
         groups.forEach(group => {
-            const groupEl = this.createBookmarkGroup(group);
+            const groupEl = this.createBookmarkGroup(group, groups);
             container.appendChild(groupEl);
         });
 
@@ -733,6 +805,10 @@ class BookmarkManager {
         if (!container || container.classList.contains('hidden')) return;
 
         const cards = Array.from(container.querySelectorAll(':scope > .bookmark-group'));
+        if (this.folderDragPreview) {
+            const ranks = new Map(this.folderDragPreview.map((id, index) => [id, index]));
+            cards.sort((a, b) => ranks.get(a.dataset.groupId) - ranks.get(b.dataset.groupId));
+        }
         if (cards.length === 0) {
             container.style.height = '';
             return;
@@ -788,8 +864,8 @@ class BookmarkManager {
             
             switch (this.currentCategory) {
                 case 'folder':
-                    groupKey = bookmark.folderPath || this.t('otherBookmarks');
-                    groupTitle = groupKey;
+                    groupKey = bookmark.parentId || bookmark.folderPath || this.t('otherBookmarks');
+                    groupTitle = bookmark.folderPath || this.t('otherBookmarks');
                     groupIcon = '';
                     groupOrder = bookmark.folderOrder || 0;
                     break;
@@ -811,6 +887,7 @@ class BookmarkManager {
             
             if (!groups.has(groupKey)) {
                 groups.set(groupKey, {
+                    id: String(groupKey),
                     title: groupTitle,
                     icon: groupIcon,
                     order: groupOrder,
@@ -827,7 +904,8 @@ class BookmarkManager {
         // 根据分类方式决定排序规则
         if (this.currentCategory === 'folder') {
             // 按文件夹的原始顺序排序
-            groupsArray.sort((a, b) => a.order - b.order);
+            const ranks = new Map(this.folderOrder.map((id, index) => [id, index]));
+            groupsArray.sort((a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity) || a.order - b.order);
             // 同时保持每个文件夹内书签的原始顺序
             groupsArray.forEach(group => {
                 group.bookmarks.sort((a, b) => (a.bookmarkIndex || 0) - (b.bookmarkIndex || 0));
@@ -846,36 +924,97 @@ class BookmarkManager {
     }
 
     // 创建书签分组元素
-    createBookmarkGroup(group) {
+    createBookmarkGroup(group, groups = []) {
         const groupEl = document.createElement('div');
         groupEl.className = 'bookmark-group';
+        groupEl.dataset.groupId = group.id;
 
-        // 移除宽版逻辑，所有卡片都使用单列宽度
-        // 统一为3列布局，不再根据书签数量添加wide类
+        const labels = document.createElement('div');
+        labels.className = 'folder-labels';
+        const title = document.createElement('h2');
+        title.className = 'folder-name';
+        const parts = group.title.split(' > ');
+        const isFolder = this.currentCategory === 'folder';
+        const name = isFolder ? parts[parts.length - 1] : group.title;
+        const fullPath = isFolder ? parts.join(' / ') : group.title;
+        title.textContent = name;
+        title.title = fullPath;
+        labels.appendChild(title);
+        if (isFolder) {
+            const peers = groups.filter(other => other.title !== group.title && other.title.split(' > ').pop() === name);
+            if (peers.length && parts.length > 1) {
+                let depth = 1;
+                const parents = parts.slice(0, -1);
+                while (depth < parents.length && peers.some(other =>
+                    other.title.split(' > ').slice(0, -1).slice(-depth).join(' / ') === parents.slice(-depth).join(' / ')
+                )) depth++;
+                const parent = document.createElement('span');
+                parent.className = 'folder-parent';
+                parent.textContent = '· ' + parents.slice(-depth).join(' / ');
+                parent.title = fullPath;
+                labels.appendChild(parent);
+            }
+            const info = document.createElement('span');
+            info.className = 'folder-info';
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const icon = document.createElementNS(svgNS, 'svg');
+            icon.setAttribute('viewBox', '0 0 24 24');
+            icon.setAttribute('width', '20');
+            icon.setAttribute('height', '20');
+            icon.setAttribute('fill', 'none');
+            icon.setAttribute('stroke', 'currentColor');
+            icon.setAttribute('stroke-width', '1.8');
+            icon.setAttribute('stroke-linecap', 'round');
+            icon.setAttribute('aria-hidden', 'true');
+            const circle = document.createElementNS(svgNS, 'circle');
+            circle.setAttribute('cx', '12');
+            circle.setAttribute('cy', '12');
+            circle.setAttribute('r', '9');
+            const stem = document.createElementNS(svgNS, 'path');
+            stem.setAttribute('d', 'M12 11v6');
+            const dot = document.createElementNS(svgNS, 'circle');
+            dot.setAttribute('cx', '12');
+            dot.setAttribute('cy', '7.5');
+            dot.setAttribute('r', '1');
+            dot.setAttribute('fill', 'currentColor');
+            dot.setAttribute('stroke', 'none');
+            icon.append(circle, stem, dot);
+            info.appendChild(icon);
+            info.tabIndex = 0;
+            info.setAttribute('aria-label', fullPath);
+            const tooltip = document.createElement('span');
+            tooltip.className = 'folder-tooltip';
+            tooltip.textContent = fullPath;
+            info.appendChild(tooltip);
+            labels.appendChild(info);
+        }
+        const count = document.createElement('span');
+        count.className = 'folder-total';
+        count.textContent = `(${group.bookmarks.length})`;
+        title.insertAdjacentElement('afterend', count);
 
-        // 创建表格
         const tableEl = document.createElement('table');
         tableEl.className = 'bookmark-table';
-
-        // 创建表头：favicon 占位列 + 标题列 + URL 列
-        const theadEl = document.createElement('thead');
-        const headerRowEl = document.createElement('tr');
-
-        // favicon 列表头（空，仅占位让列宽对齐）
-        const faviconHeaderEl = document.createElement('th');
-
-        const titleHeaderEl = document.createElement('th');
-        titleHeaderEl.textContent = group.title;
-
-        const urlHeaderEl = document.createElement('th');
-        urlHeaderEl.textContent = this.t('urlLabel');
-
-        headerRowEl.appendChild(faviconHeaderEl);
-        headerRowEl.appendChild(titleHeaderEl);
-        headerRowEl.appendChild(urlHeaderEl);
-
-        theadEl.appendChild(headerRowEl);
-
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const iconHeader = document.createElement('th');
+        const pathInfo = labels.querySelector('.folder-info');
+        if (pathInfo) iconHeader.appendChild(pathInfo);
+        const nameHeader = document.createElement('th');
+        nameHeader.scope = 'col';
+        nameHeader.appendChild(labels);
+        const urlHeader = document.createElement('th');
+        urlHeader.scope = 'col';
+        const urlHeading = document.createElement('div');
+        urlHeading.className = 'folder-url-heading';
+        const urlLabel = document.createElement('span');
+        urlLabel.textContent = this.t('urlLabel');
+        urlHeading.appendChild(urlLabel);
+        urlHeader.appendChild(urlHeading);
+        headerRow.append(iconHeader, nameHeader, urlHeader);
+        thead.appendChild(headerRow);
+        tableEl.appendChild(thead);
+        if (isFolder && !this.searchQuery) this.setupFolderDrag(groupEl, thead, group);
         // 创建表体
         const tbodyEl = document.createElement('tbody');
         tbodyEl.className = 'bookmark-list';
@@ -885,11 +1024,185 @@ class BookmarkManager {
             tbodyEl.appendChild(rowEl);
         });
 
-        tableEl.appendChild(theadEl);
         tableEl.appendChild(tbodyEl);
         groupEl.appendChild(tableEl);
 
+        if (group.bookmarks.length > 10 && !this.searchQuery) {
+            const key = this.currentCategory + ':' + group.title;
+            this.expandedGroups ||= new Set();
+            const toggle = document.createElement('button');
+            toggle.className = 'folder-expand';
+            const update = () => {
+                const expanded = this.expandedGroups.has(key);
+                Array.from(tbodyEl.children).forEach((row, index) => {
+                    row.hidden = !expanded && index >= 8;
+                    row.classList.toggle('last-visible-row', index === (expanded ? group.bookmarks.length - 1 : 7));
+                });
+                toggle.setAttribute('aria-expanded', String(expanded));
+                toggle.textContent = expanded
+                    ? (this.language === 'zh' ? '收起 ↑' : 'Show less ↑')
+                    : (this.language === 'zh' ? `展开其余 ${group.bookmarks.length - 8} 条 ↓` : `Show ${group.bookmarks.length - 8} more ↓`);
+            };
+            toggle.addEventListener('click', () => {
+                if (this.expandedGroups.has(key)) this.expandedGroups.delete(key);
+                else this.expandedGroups.add(key);
+                update();
+                this.layoutMasonry();
+            });
+            update();
+            groupEl.appendChild(toggle);
+        }
+
         return groupEl;
+    }
+
+    // 仅调整首页展示顺序，不移动浏览器书签目录。
+    setupFolderDrag(card, heading, group) {
+        card.classList.add('folder-draggable');
+        const hint = this.language === 'zh' ? '拖动顶部调整顺序' : 'Drag header to reorder';
+        heading.title = hint;
+        // 只有表头和卡片顶部空白可发起拖动，链接和展开按钮保持原有行为。
+        card.addEventListener('mousedown', event => {
+            card.draggable = event.button === 0 &&
+                (heading.contains(event.target) || (event.target === card && event.clientY < heading.getBoundingClientRect().bottom)) &&
+                !event.target.closest('.folder-info');
+        });
+        card.addEventListener('dragstart', event => {
+            if (!card.draggable || this.orderSaving) { event.preventDefault(); return; }
+            this.clearOrderNotice();
+            this.draggedFolder = group.id;
+            this.folderDragPreview = this.groupBookmarks(this.bookmarks).map(item => item.id);
+            this.folderDragLastMove = 0;
+            this.folderDragPoint = null;
+            card.parentElement.classList.add('folder-sorting');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', group.id);
+            card.classList.add('folder-dragging');
+        });
+        const container = card.parentElement || document.getElementById('bookmarksContainer');
+        if (!container.dataset.dragBound) {
+            container.dataset.dragBound = 'true';
+            container.addEventListener('dragover', event => {
+                if (this.draggedFolder) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                }
+            });
+            container.addEventListener('drop', event => {
+                if (!this.draggedFolder) return;
+                event.preventDefault();
+                this.finishFolderDrag(true);
+            });
+        }
+        card.addEventListener('dragover', event => {
+            if (!this.draggedFolder || this.draggedFolder === group.id) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            // 动画完成且指针确实移动后再换位，避免卡片在静止鼠标下反复跳动。
+            const now = performance.now();
+            if (now - this.folderDragLastMove < 240) return;
+            const point = this.folderDragPoint;
+            if (point && Math.hypot(event.clientX - point.x, event.clientY - point.y) < 8) return;
+            const order = [...this.folderDragPreview];
+            const from = order.indexOf(this.draggedFolder);
+            const to = order.indexOf(group.id);
+            order.splice(from, 1);
+            order.splice(to, 0, this.draggedFolder);
+            this.folderDragPreview = order;
+            this.folderDragLastMove = now;
+            this.folderDragPoint = { x: event.clientX, y: event.clientY };
+            this.layoutMasonry();
+        });
+        card.addEventListener('dragend', () => {
+            card.draggable = false;
+            card.classList.remove('folder-dragging');
+            if (this.draggedFolder) this.finishFolderDrag(false);
+        });
+    }
+
+    async storeFolderOrder(order) {
+        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+            if (order.length) await chrome.storage.local.set({ folderOrder: order });
+            else await chrome.storage.local.remove('folderOrder');
+        } else {
+            if (order.length) localStorage.setItem('folderOrder', JSON.stringify(order));
+            else localStorage.removeItem('folderOrder');
+        }
+    }
+
+    clearOrderNotice() {
+        clearTimeout(this.orderNoticeTimer);
+        document.getElementById('orderNotice')?.remove();
+    }
+
+    async resetFolderOrder() {
+        if (this.orderSaving || !this.folderOrder.length) return;
+        const previous = [...this.folderOrder];
+        this.orderSaving = true;
+        document.getElementById('resetFolderOrder').disabled = true;
+        try {
+            await this.storeFolderOrder([]);
+            this.folderOrder = [];
+            this.clearOrderNotice();
+            const notice = document.createElement('div');
+            notice.id = 'orderNotice';
+            notice.className = 'order-notice';
+            notice.setAttribute('role', 'status');
+            const label = document.createElement('span');
+            label.textContent = this.language === 'zh' ? '已恢复顺序' : 'Order restored';
+            const undo = document.createElement('button');
+            undo.textContent = this.language === 'zh' ? '撤销' : 'Undo';
+            undo.addEventListener('click', async () => {
+                if (this.orderSaving) return;
+                this.orderSaving = true;
+                undo.disabled = true;
+                clearTimeout(this.orderNoticeTimer);
+                try {
+                    await this.storeFolderOrder(previous);
+                    this.folderOrder = previous;
+                } catch (error) {
+                    alert(this.language === 'zh' ? '撤销失败，请重试' : 'Could not undo. Please retry.');
+                } finally {
+                    this.orderSaving = false;
+                    this.clearOrderNotice();
+                    this.renderBookmarks();
+                }
+            });
+            notice.append(label, undo);
+            document.body.appendChild(notice);
+            this.orderNoticeTimer = setTimeout(() => this.clearOrderNotice(), 8000);
+        } catch (error) {
+            alert(this.language === 'zh' ? '恢复失败，请重试' : 'Could not restore order. Please retry.');
+        } finally {
+            this.orderSaving = false;
+            this.renderBookmarks();
+        }
+    }
+
+    async finishFolderDrag(commit) {
+        const previous = this.folderOrder;
+        const order = this.folderDragPreview;
+        this.draggedFolder = null;
+        this.folderDragPreview = null;
+        const container = document.getElementById('bookmarksContainer');
+        container.classList.remove('folder-sorting');
+        container.querySelectorAll('.folder-dragging').forEach(card => {
+            card.classList.remove('folder-dragging');
+            card.draggable = false;
+        });
+        if (commit && order) {
+            this.folderOrder = order;
+            this.orderSaving = true;
+            document.getElementById('resetFolderOrder').disabled = true;
+            try {
+                await this.storeFolderOrder(order);
+            } catch (error) {
+                this.folderOrder = previous;
+                alert(this.language === 'zh' ? '顺序保存失败，请重试' : 'Could not save order. Please retry.');
+            }
+        }
+        this.orderSaving = false;
+        this.renderBookmarks();
     }
 
     // 创建书签表格行元素
@@ -909,8 +1222,9 @@ class BookmarkManager {
         const titleLinkEl = document.createElement('a');
         titleLinkEl.href = bookmark.url;
         titleLinkEl.textContent = bookmark.title;
-        titleLinkEl.title = bookmark.title;
+        titleLinkEl.title = `${bookmark.title}\n${bookmark.url}`;
         titleCellEl.appendChild(titleLinkEl);
+
 
         // URL列
         const urlCellEl = document.createElement('td');
@@ -927,8 +1241,7 @@ class BookmarkManager {
         return rowEl;
     }
 
-    // 创建 favicon 元素 —— 简单 img，src 来自 Google CDN。
-    // Google 不认识的域名会返回它的灰色"地球"占位图(HTTP 200,不触发 onerror)，
+    // 创建 favicon 元素；扩展环境的图标来自浏览器缓存。
     // 这是预期行为，不再做首字母圆 fallback。
     createFaviconElement(bookmark) {
         const img = document.createElement('img');
