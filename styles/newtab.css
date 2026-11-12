@@ -1175,3 +1175,10 @@ html[data-category="all"]    .bookmark-group {
 .search-clear:hover { color: var(--text-link); background: var(--accent-soft); }
 .search-clear[hidden] { display: flex; visibility: hidden; pointer-events: none; }
 @media (max-width: 768px) { .search-container { width: min(380px, 100%); } }
+
+.bookmark-row-draggable { cursor: grab; }
+.bookmark-row-dragging { opacity: .4; }
+.bookmark-table tr.bookmark-drop-before td { box-shadow: inset 0 2px var(--accent-color); }
+.bookmark-table tr.bookmark-drop-after td { box-shadow: inset 0 -2px var(--accent-color); }
+.bookmark-drop-folder { outline: 2px solid var(--accent-color); outline-offset: -2px; }
+.bookmark-saving { opacity: .65; pointer-events: none; }

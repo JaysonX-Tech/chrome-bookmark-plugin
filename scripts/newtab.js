@@ -564,6 +564,7 @@ class BookmarkManager {
 
     // 防抖刷新书签数据
     debouncedRefresh() {
+        if (this.bookmarkMoving || this.draggedBookmark) { this.bookmarkRefreshPending = true; return; }
         // 清除之前的定时器
         if (this.refreshTimeout) {
             clearTimeout(this.refreshTimeout);
@@ -1015,6 +1016,7 @@ class BookmarkManager {
         thead.appendChild(headerRow);
         tableEl.appendChild(thead);
         if (isFolder && !this.searchQuery) this.setupFolderDrag(groupEl, thead, group);
+        if (isFolder) this.setupBookmarkDrop(groupEl, group);
         // 创建表体
         const tbodyEl = document.createElement('tbody');
         tbodyEl.className = 'bookmark-list';
@@ -1068,7 +1070,8 @@ class BookmarkManager {
                 !event.target.closest('.folder-info');
         });
         card.addEventListener('dragstart', event => {
-            if (!card.draggable || this.orderSaving) { event.preventDefault(); return; }
+            if (event.target !== card) return;
+            if (!card.draggable || this.orderSaving || this.bookmarkMoving) { event.preventDefault(); return; }
             this.clearOrderNotice();
             this.draggedFolder = group.id;
             this.folderDragPreview = this.groupBookmarks(this.bookmarks).map(item => item.id);
@@ -1205,12 +1208,107 @@ class BookmarkManager {
         this.renderBookmarks();
     }
 
+    clearBookmarkDrop() {
+        document.querySelectorAll('.bookmark-drop-before, .bookmark-drop-after, .bookmark-drop-folder').forEach(el => {
+            el.classList.remove('bookmark-drop-before', 'bookmark-drop-after', 'bookmark-drop-folder');
+        });
+    }
+
+    setupBookmarkRowDrag(row, bookmark) {
+        row.draggable = true;
+        row.classList.add('bookmark-row-draggable');
+        row.addEventListener('dragstart', event => {
+            event.stopPropagation();
+            if (this.bookmarkMoving || this.draggedFolder || this.orderSaving) { event.preventDefault(); return; }
+            this.draggedBookmark = bookmark.id;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', bookmark.id);
+            row.classList.add('bookmark-row-dragging');
+        });
+        row.addEventListener('dragend', event => {
+            event.stopPropagation();
+            this.draggedBookmark = null;
+            row.classList.remove('bookmark-row-dragging');
+            this.clearBookmarkDrop();
+            if (this.bookmarkRefreshPending && !this.bookmarkMoving) {
+                this.bookmarkRefreshPending = false;
+                this.debouncedRefresh();
+            }
+        });
+    }
+
+    setupBookmarkDrop(card, group) {
+        const targetAt = event => {
+            const row = event.target.closest('tr[data-bookmark-id]');
+            if (!row || !card.contains(row)) return { parentId: group.id };
+            const rect = row.getBoundingClientRect();
+            return { parentId: group.id, anchorId: row.dataset.bookmarkId,
+                after: event.clientY >= rect.top + rect.height / 2, row };
+        };
+        card.addEventListener('dragover', event => {
+            if (!this.draggedBookmark || this.bookmarkMoving) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.dataTransfer.dropEffect = 'move';
+            this.clearBookmarkDrop();
+            const target = targetAt(event);
+            if (target.anchorId === this.draggedBookmark) return;
+            if (target.row) target.row.classList.add(target.after ? 'bookmark-drop-after' : 'bookmark-drop-before');
+            else card.classList.add('bookmark-drop-folder');
+        });
+        card.addEventListener('dragleave', event => {
+            if (!card.contains(event.relatedTarget)) this.clearBookmarkDrop();
+        });
+        card.addEventListener('drop', async event => {
+            if (!this.draggedBookmark || this.bookmarkMoving) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const id = this.draggedBookmark;
+            this.draggedBookmark = null;
+            const target = targetAt(event);
+            this.clearBookmarkDrop();
+            if (id === target.anchorId) return;
+            this.bookmarkMoving = true;
+            card.classList.add('bookmark-saving');
+            try {
+                await this.moveBookmarkTo(id, target);
+            } catch (error) {
+                console.error('移动书签失败', error);
+                alert(this.language === 'zh' ? '移动失败，书签可能已被修改或目标文件夹不允许编辑。请刷新后重试。' : 'Move failed. The bookmark may have changed or the folder may be read-only. Refresh and retry.');
+            } finally {
+                clearTimeout(this.refreshTimeout);
+                await this.loadBookmarks();
+                this.bookmarkMoving = false;
+                this.bookmarkRefreshPending = false;
+                this.filterAndRenderBookmarks();
+            }
+        });
+    }
+
+    async moveBookmarkTo(id, target) {
+        const [source] = await chrome.bookmarks.get(id);
+        if (!source?.url || source.unmodifiable) throw new Error('Bookmark is not editable');
+        const [folder] = await chrome.bookmarks.get(target.parentId);
+        if (!folder || folder.url || folder.unmodifiable) throw new Error('Folder is not editable');
+        // 实时读取所有子节点（含子文件夹），不用过滤后的可见行号作为真实索引。
+        const children = await chrome.bookmarks.getChildren(target.parentId);
+        let index = children.length;
+        if (target.anchorId) {
+            const anchorIndex = children.findIndex(child => child.id === target.anchorId);
+            if (anchorIndex < 0) throw new Error('Drop target changed');
+            index = anchorIndex + (target.after ? 1 : 0);
+        }
+        // Chrome move 的 index 是移除源节点之前的位置；同目录下移由浏览器修正。
+        return chrome.bookmarks.move(id, { parentId: target.parentId, index });
+    }
+
     // 创建书签表格行元素
     createBookmarkTableRow(bookmark) {
         const rowEl = document.createElement('tr');
         // 不要给 tr 加 .bookmark-item class — CSS 中 .bookmark-item { display:none }
         // 会把所有行藏掉。右键菜单监听器通过 [data-bookmark-id] 定位即可。
         rowEl.dataset.bookmarkId = bookmark.id;
+        if (this.currentCategory === 'folder' && typeof chrome !== 'undefined' && chrome.bookmarks?.move) this.setupBookmarkRowDrag(rowEl, bookmark);
 
         // favicon 列
         const faviconCellEl = document.createElement('td');
@@ -1221,6 +1319,7 @@ class BookmarkManager {
         const titleCellEl = document.createElement('td');
         const titleLinkEl = document.createElement('a');
         titleLinkEl.href = bookmark.url;
+        titleLinkEl.draggable = false;
         titleLinkEl.textContent = bookmark.title;
         titleLinkEl.title = `${bookmark.title}\n${bookmark.url}`;
         titleCellEl.appendChild(titleLinkEl);
@@ -1230,6 +1329,7 @@ class BookmarkManager {
         const urlCellEl = document.createElement('td');
         const urlLinkEl = document.createElement('a');
         urlLinkEl.href = bookmark.url;
+        urlLinkEl.draggable = false;
         urlLinkEl.textContent = bookmark.url;
         urlLinkEl.title = bookmark.url;
         urlCellEl.appendChild(urlLinkEl);
@@ -1247,6 +1347,7 @@ class BookmarkManager {
         const img = document.createElement('img');
         img.className = 'bookmark-favicon';
         img.alt = '';
+        img.draggable = false;
         img.loading = 'lazy';
         img.referrerPolicy = 'no-referrer';
         if (bookmark.favicon) img.src = bookmark.favicon;
